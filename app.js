@@ -751,6 +751,7 @@ function renderCategoryOptions() {
     "Dışarıda Yemek",
     "Faturalar",
     "Kira",
+    "Taksit",
     "Alışveriş",
     "Sağlık",
     "Eğlence",
