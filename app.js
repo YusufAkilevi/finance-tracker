@@ -1,4 +1,3 @@
-const STORAGE_KEY = "finance-tracker-state-v1";
 const FIREBASE_SYNC = {
   enabled: true,
   databaseUrl:
@@ -12,11 +11,12 @@ const monthFormatter = new Intl.DateTimeFormat("tr-TR", {
   month: "long",
   year: "numeric",
 });
-const state = loadState();
+const state = defaultState();
 let draggedBudgetId = null;
 let syncTimer = null;
 let syncPoller = null;
 let lastSyncedState = "";
+let hasLoadedRemoteState = false;
 
 const elements = {
   monthPicker: document.querySelector("#monthPicker"),
@@ -106,18 +106,6 @@ function init() {
 
   render();
   initializeSync();
-}
-
-function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return normalizeState(JSON.parse(saved));
-    } catch {
-      return defaultState();
-    }
-  }
-  return defaultState(true);
 }
 
 function defaultState(withDemoData = false) {
@@ -875,7 +863,6 @@ function createPayment(month, name, currentAmount, nextAmount, paid = false) {
 
 function saveAndRender() {
   state.updatedAt = new Date().toISOString();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   render();
   queueRemoteSave();
 }
@@ -923,16 +910,17 @@ async function pullRemoteState(options = {}) {
 
       if (remoteSnapshot === localSnapshot) {
         lastSyncedState = remoteSnapshot;
+        hasLoadedRemoteState = true;
         updateSyncStatus("Synced");
         return;
       }
 
-      if (isStateNewer(normalizedRemote, state)) {
+      if (!hasLoadedRemoteState || isStateNewer(normalizedRemote, state)) {
         Object.assign(state, normalizedRemote);
         elements.monthPicker.value = state.selectedMonth;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         render();
         lastSyncedState = remoteSnapshot;
+        hasLoadedRemoteState = true;
         updateSyncStatus("Synced");
         return;
       }
@@ -941,6 +929,7 @@ async function pullRemoteState(options = {}) {
       return;
     }
 
+    hasLoadedRemoteState = true;
     await pushRemoteState();
   } catch (error) {
     console.error(error);
@@ -973,6 +962,7 @@ async function pushRemoteState() {
     if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
 
     lastSyncedState = snapshot;
+    hasLoadedRemoteState = true;
     updateSyncStatus("Synced");
   } catch (error) {
     console.error(error);
