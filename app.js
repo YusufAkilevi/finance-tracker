@@ -220,20 +220,25 @@ function addExpense(event) {
       "-",
     ),
   );
-  elements.expenseForm.reset();
-  elements.expenseForm.date.value = todayISO();
   closeExpenseModal();
   saveAndRender();
 }
 
 function openExpenseModal() {
-  elements.expenseForm.date.value = todayISO();
+  resetExpenseForm();
   elements.expenseModal.hidden = false;
   elements.expenseModal.querySelector(".modal-panel").focus();
 }
 
 function closeExpenseModal() {
+  resetExpenseForm();
   elements.expenseModal.hidden = true;
+}
+
+function resetExpenseForm() {
+  elements.expenseForm.reset();
+  elements.expenseForm.date.value = todayISO();
+  elements.expenseForm.category.value = "";
 }
 
 function addDebt(event) {
@@ -254,23 +259,26 @@ function addDebt(event) {
       recurring,
     ),
   );
-  elements.debtForm.reset();
-  elements.debtForm.totalInstallments.value = 6;
-  elements.debtForm.startMonth.value = state.selectedMonth;
-  syncDebtForm();
   closeDebtModal();
   saveAndRender();
 }
 
 function openDebtModal() {
-  elements.debtForm.startMonth.value = state.selectedMonth;
-  syncDebtForm();
+  resetDebtForm();
   elements.debtModal.hidden = false;
   elements.debtForm.name.focus();
 }
 
 function closeDebtModal() {
+  resetDebtForm();
   elements.debtModal.hidden = true;
+}
+
+function resetDebtForm() {
+  elements.debtForm.reset();
+  elements.debtForm.totalInstallments.value = 6;
+  elements.debtForm.startMonth.value = state.selectedMonth;
+  syncDebtForm();
 }
 
 function syncDebtForm() {
@@ -291,18 +299,23 @@ function addBudget(event) {
       false,
     ),
   );
-  elements.budgetForm.reset();
   closeBudgetModal();
   saveAndRender();
 }
 
 function openBudgetModal() {
+  resetBudgetForm();
   elements.budgetModal.hidden = false;
   elements.budgetForm.name.focus();
 }
 
 function closeBudgetModal() {
+  resetBudgetForm();
   elements.budgetModal.hidden = true;
+}
+
+function resetBudgetForm() {
+  elements.budgetForm.reset();
 }
 
 function render() {
