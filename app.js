@@ -14,6 +14,8 @@ const monthFormatter = new Intl.DateTimeFormat("tr-TR", {
 });
 const state = defaultState();
 let draggedBudgetId = null;
+let editingExpenseId = null;
+let editingDebtId = null;
 let syncTimer = null;
 let syncPoller = null;
 let lastSyncedState = "";
@@ -73,7 +75,7 @@ function init() {
     saveAndRender();
   });
 
-  elements.expenseSearch.addEventListener("input", render);
+  elements.expenseSearch.addEventListener("change", render);
   elements.expenseForm.addEventListener("submit", addExpense);
   elements.openExpenseModal.addEventListener("click", openExpenseModal);
   elements.closeExpenseModal.addEventListener("click", closeExpenseModal);
@@ -200,21 +202,52 @@ function addExpense(event) {
   event.preventDefault();
   const form = new FormData(elements.expenseForm);
   const category = normalizeCategory(form.get("category"));
-  state.expenses.push(
-    createExpense(
-      form.get("date"),
-      category,
-      category,
-      Number(form.get("amount")),
-      "-",
-    ),
-  );
+  const values = {
+    date: form.get("date"),
+    description: category,
+    category,
+    amount: Number(form.get("amount")),
+    method: "-",
+  };
+
+  if (editingExpenseId) {
+    const expense = state.expenses.find(
+      (item) => item.id === editingExpenseId,
+    );
+    if (expense) Object.assign(expense, values);
+  } else {
+    state.expenses.push(
+      createExpense(
+        values.date,
+        values.description,
+        values.category,
+        values.amount,
+        values.method,
+      ),
+    );
+  }
+
   closeExpenseModal();
   saveAndRender();
 }
 
 function openExpenseModal() {
   resetExpenseForm();
+  setExpenseFormMode();
+  elements.expenseModal.hidden = false;
+  elements.expenseModal.querySelector(".modal-panel").focus();
+}
+
+function openExpenseEditModal(expenseId) {
+  const expense = state.expenses.find((item) => item.id === expenseId);
+  if (!expense) return;
+
+  resetExpenseForm();
+  editingExpenseId = expense.id;
+  elements.expenseForm.date.value = expense.date;
+  elements.expenseForm.amount.value = Number(expense.amount || 0);
+  elements.expenseForm.category.value = expense.category;
+  setExpenseFormMode(true);
   elements.expenseModal.hidden = false;
   elements.expenseModal.querySelector(".modal-panel").focus();
 }
@@ -228,6 +261,17 @@ function resetExpenseForm() {
   elements.expenseForm.reset();
   elements.expenseForm.date.value = todayISO();
   elements.expenseForm.category.value = "";
+  editingExpenseId = null;
+  setExpenseFormMode();
+}
+
+function setExpenseFormMode(isEditing = false) {
+  document.querySelector("#expenseModalTitle").textContent = isEditing
+    ? "Harcama Düzenle"
+    : "Harcama Ekle";
+  elements.expenseForm.querySelector(".primary-action").textContent = isEditing
+    ? "Harcamayı Kaydet"
+    : "Harcama Ekle";
 }
 
 function addDebt(event) {
@@ -237,23 +281,64 @@ function addDebt(event) {
   const totalInstallments = recurring
     ? 0
     : Number(form.get("totalInstallments"));
-  state.debts.push(
-    createDebt(
-      form.get("name").trim(),
-      Number(form.get("monthlyAmount")),
-      totalInstallments,
-      0,
-      form.get("startMonth"),
-      1,
-      recurring,
-    ),
-  );
+  const values = {
+    name: form.get("name").trim(),
+    monthlyAmount: Number(form.get("monthlyAmount")),
+    totalInstallments,
+    startMonth: form.get("startMonth"),
+    recurring,
+  };
+
+  if (editingDebtId) {
+    const debt = state.debts.find((item) => item.id === editingDebtId);
+    if (debt) {
+      const paidInstallments = recurring
+        ? 0
+        : Math.min(Number(debt.paidInstallments || 0), totalInstallments);
+      Object.assign(debt, {
+        ...values,
+        paidInstallments,
+        total: recurring ? 0 : values.monthlyAmount * totalInstallments,
+      });
+    }
+  } else {
+    state.debts.push(
+      createDebt(
+        values.name,
+        values.monthlyAmount,
+        values.totalInstallments,
+        0,
+        values.startMonth,
+        1,
+        values.recurring,
+      ),
+    );
+  }
+
   closeDebtModal();
   saveAndRender();
 }
 
 function openDebtModal() {
   resetDebtForm();
+  setDebtFormMode();
+  elements.debtModal.hidden = false;
+  elements.debtForm.name.focus();
+}
+
+function openDebtEditModal(debtId) {
+  const debt = state.debts.find((item) => item.id === debtId);
+  if (!debt) return;
+
+  resetDebtForm();
+  editingDebtId = debt.id;
+  elements.debtForm.name.value = debt.name;
+  elements.debtForm.monthlyAmount.value = Number(monthlyPayment(debt) || 0);
+  elements.debtForm.totalInstallments.value = debt.totalInstallments || 6;
+  elements.debtForm.startMonth.value = debt.startMonth;
+  elements.debtForm.recurring.checked = isRecurringDebt(debt);
+  syncDebtForm();
+  setDebtFormMode(true);
   elements.debtModal.hidden = false;
   elements.debtForm.name.focus();
 }
@@ -267,7 +352,18 @@ function resetDebtForm() {
   elements.debtForm.reset();
   elements.debtForm.totalInstallments.value = 6;
   elements.debtForm.startMonth.value = state.selectedMonth;
+  editingDebtId = null;
   syncDebtForm();
+  setDebtFormMode();
+}
+
+function setDebtFormMode(isEditing = false) {
+  document.querySelector("#debtModalTitle").textContent = isEditing
+    ? "Taksit Düzenle"
+    : "Taksitli Borç Ekle";
+  elements.debtForm.querySelector(".primary-action").textContent = isEditing
+    ? "Taksidi Güncelle"
+    : "Taksidi Kaydet";
 }
 
 function syncDebtForm() {
@@ -447,12 +543,10 @@ function renderExpenseCategorySummary(expenses) {
 }
 
 function renderExpenseTable(expenses) {
-  const query = elements.expenseSearch.value.trim().toLowerCase();
+  const selectedCategory = elements.expenseSearch.value;
   const filtered = expenses
     .filter((expense) => {
-      const value =
-        `${expense.description} ${expense.category} ${expense.method}`.toLowerCase();
-      return value.includes(query);
+      return !selectedCategory || expense.category === selectedCategory;
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
@@ -466,12 +560,23 @@ function renderExpenseTable(expenses) {
             <td data-label="Kategori">${escapeHTML(expense.category)}</td>
             <td data-label="Yöntem">${escapeHTML(expense.method)}</td>
             <td data-label="Tutar" class="amount-col">${money(expense.amount)}</td>
-            <td><button class="row-action" data-delete-expense="${expense.id}" type="button">Sil</button></td>
+            <td>
+              <div class="row-actions">
+                <button class="row-action" data-edit-expense="${expense.id}" type="button">Düzenle</button>
+                <button class="row-action" data-delete-expense="${expense.id}" type="button">Sil</button>
+              </div>
+            </td>
           </tr>
         `,
         )
         .join("")
     : `<tr><td colspan="6">${emptyState("Eşleşen harcama bulunamadı.")}</td></tr>`;
+
+  document.querySelectorAll("[data-edit-expense]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openExpenseEditModal(button.dataset.editExpense);
+    });
+  });
 
   document.querySelectorAll("[data-delete-expense]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -519,7 +624,12 @@ function renderDebtSchedule() {
       return `<tr>
       <th>${escapeHTML(debt.name)}</th>
       ${payments}
-      <td><button class="row-action" data-delete-debt="${debt.id}" type="button">Sil</button></td>
+      <td>
+        <div class="row-actions">
+          <button class="row-action" data-edit-debt="${debt.id}" type="button">Düzenle</button>
+          <button class="row-action" data-delete-debt="${debt.id}" type="button">Sil</button>
+        </div>
+      </td>
     </tr>`;
     })
     .join("");
@@ -529,6 +639,12 @@ function renderDebtSchedule() {
     ${monthTotals.map((t) => `<td class="amount-col">${money(t)}</td>`).join("")}
     <td></td>
   </tr>`;
+
+  document.querySelectorAll("[data-edit-debt]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openDebtEditModal(button.dataset.editDebt);
+    });
+  });
 
   document.querySelectorAll("[data-delete-debt]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -756,29 +872,49 @@ function isFixedBudgetPayment(payment) {
 }
 
 function renderCategoryOptions() {
-  const categories = new Set([
-    "Market",
-    "Ulaşım",
-    "Dışarıda Yemek",
-    "Faturalar",
-    "Kira",
-    "Taksit",
-    "Alışveriş",
-    "Sağlık",
-    "Eğlence",
-    "Diğer",
-    ...state.expenses.map((expense) => expense.category),
-  ]);
+  const categories = expenseCategories();
   elements.categoryOptions.innerHTML = `
     <option value="" disabled selected>Kategori seçin</option>
-    ${[...categories]
-      .sort()
+    ${categories
       .map(
         (category) =>
           `<option value="${escapeHTML(category)}">${escapeHTML(category)}</option>`,
       )
       .join("")}
   `;
+
+  const selectedExpenseFilter = elements.expenseSearch.value;
+  elements.expenseSearch.innerHTML = `
+    <option value="">Tüm harcama türleri</option>
+    ${categories
+      .map(
+        (category) =>
+          `<option value="${escapeHTML(category)}">${escapeHTML(category)}</option>`,
+      )
+      .join("")}
+  `;
+  elements.expenseSearch.value = categories.includes(selectedExpenseFilter)
+    ? selectedExpenseFilter
+    : "";
+}
+
+function expenseCategories() {
+  return [
+    ...new Set([
+      "Market",
+      "Ulaşım",
+      "Dışarıda Yemek",
+      "Faturalar",
+      "Kira",
+      "Taksit",
+      "Alışveriş",
+      "BES",
+      "Sağlık",
+      "Eğlence",
+      "Diğer",
+      ...state.expenses.map((expense) => expense.category),
+    ]),
+  ].sort();
 }
 
 function monthlyExpenses(month) {
@@ -790,7 +926,7 @@ function isFixedHousingOrInstallmentExpense(expense) {
     `${expense.category || ""} ${expense.description || ""}`.toLocaleLowerCase(
       "tr-TR",
     );
-  return ["taksit", "kira", "rent", "aidat"].some((term) =>
+  return ["taksit", "kira", "rent", "aidat", "bes"].some((term) =>
     searchableText.includes(term),
   );
 }

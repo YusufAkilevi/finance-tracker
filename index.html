@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Finans Takipçisi</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23d7e8c4'/%3E%3Ctext x='32' y='39' text-anchor='middle' font-family='Arial' font-size='22' font-weight='700' fill='%231d2520'%3EFT%3C/text%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="styles.css?v=20260606" />
+    <link rel="stylesheet" href="styles.css?v=20260606-6" />
   </head>
   <body>
     <div class="app-shell">
@@ -68,7 +68,7 @@
               <small id="metricSpentCount">-</small>
             </article>
             <article class="metric metric-flexible-spent">
-              <span>Taksit/Kira/Aidat Dışı</span>
+              <span>Taksit/Kira/Aidat/BES Dışı</span>
               <strong id="metricFlexibleSpent">-</strong>
               <small id="metricFlexibleSpentCount">-</small>
             </article>
@@ -121,7 +121,7 @@
             <section class="panel">
               <div class="panel-heading split-heading">
                 <h3>Aylık Harcamalar</h3>
-                <input id="expenseSearch" type="search" placeholder="Harcamaları filtrele" />
+                <select id="expenseSearch" aria-label="Harcamaları kategoriye göre filtrele"></select>
               </div>
               <div class="table-wrap">
                 <table>
@@ -270,6 +270,6 @@
       </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20260606-2"></script>
   </body>
 </html>
