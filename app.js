@@ -6,6 +6,7 @@ const FIREBASE_SYNC = {
 };
 const SYNC_DEBOUNCE_MS = 600;
 const SYNC_POLL_MS = 60 * 1000;
+const BUDGET_MONTH = "2026-05";
 
 const monthFormatter = new Intl.DateTimeFormat("tr-TR", {
   month: "long",
@@ -169,12 +170,12 @@ function buildDemoData(month) {
       ),
     ],
     budgets: [
-      createPayment(month, "Kira", 53000, 53000, true),
-      createPayment(month, "Ziraat", 28777.26, 15359.06, true),
-      createPayment(month, "Kredi 1", 3625.89, 0, true),
-      createPayment(month, "Akbank", 30988.39, 28670, false),
-      createPayment(month, "Garanti", 40500, 10500, false),
-      createPayment(month, "Terapi", 8000, 8000, false),
+      createPayment(BUDGET_MONTH, "Kira", 53000, 53000, true),
+      createPayment(BUDGET_MONTH, "Ziraat", 28777.26, 15359.06, true),
+      createPayment(BUDGET_MONTH, "Kredi 1", 3625.89, 0, true),
+      createPayment(BUDGET_MONTH, "Akbank", 30988.39, 28670, false),
+      createPayment(BUDGET_MONTH, "Garanti", 40500, 10500, false),
+      createPayment(BUDGET_MONTH, "Terapi", 8000, 8000, false),
     ],
   };
 }
@@ -280,7 +281,7 @@ function addBudget(event) {
   const form = new FormData(elements.budgetForm);
   state.budgets.push(
     createPayment(
-      state.selectedMonth,
+      BUDGET_MONTH,
       form.get("name").trim(),
       Number(form.get("currentAmount")),
       Number(form.get("nextAmount")),
@@ -310,7 +311,7 @@ function render() {
   const month = state.selectedMonth;
   const monthDate = new Date(`${month}-01T00:00:00`);
   const expenses = monthlyExpenses(month);
-  const budgets = state.budgets.filter((budget) => budget.month === month);
+  const budgets = fixedBudgetPayments();
   const debtDue = monthlyDebtDue(month);
   const totalSpent = sum(expenses, "amount");
   const flexibleExpenses = expenses.filter(
@@ -709,9 +710,7 @@ function renderBudgetTable(budgets) {
 }
 
 function rolloverBudgetPayments() {
-  const month = state.selectedMonth;
-  state.budgets.forEach((payment) => {
-    if (payment.month !== month) return;
+  fixedBudgetPayments().forEach((payment) => {
     payment.currentAmount = paymentAmount(payment, "nextAmount");
     payment.nextAmount = 0;
     payment.paid = false;
@@ -722,26 +721,38 @@ function rolloverBudgetPayments() {
 function reorderBudgetPayment(draggedId, targetId) {
   if (!draggedId || !targetId || draggedId === targetId) return;
 
-  const month = state.selectedMonth;
-  const monthPayments = state.budgets.filter(
-    (budget) => budget.month === month,
-  );
-  const fromIndex = monthPayments.findIndex(
+  const payments = fixedBudgetPayments();
+  const fromIndex = payments.findIndex(
     (payment) => payment.id === draggedId,
   );
-  const toIndex = monthPayments.findIndex((payment) => payment.id === targetId);
+  const toIndex = payments.findIndex((payment) => payment.id === targetId);
   if (fromIndex < 0 || toIndex < 0) return;
 
-  const [movedPayment] = monthPayments.splice(fromIndex, 1);
-  monthPayments.splice(toIndex, 0, movedPayment);
+  const [movedPayment] = payments.splice(fromIndex, 1);
+  payments.splice(toIndex, 0, movedPayment);
 
-  let nextMonthPaymentIndex = 0;
+  let nextPaymentIndex = 0;
   state.budgets = state.budgets.map((payment) => {
-    if (payment.month !== month) return payment;
-    return monthPayments[nextMonthPaymentIndex++];
+    if (!isFixedBudgetPayment(payment)) return payment;
+    return payments[nextPaymentIndex++];
   });
 
   saveAndRender();
+}
+
+function fixedBudgetPayments() {
+  const fixedPayments = state.budgets.filter(
+    (payment) => payment.month === BUDGET_MONTH,
+  );
+  if (fixedPayments.length > 0) return fixedPayments;
+  return state.budgets.filter((payment) => !payment.month);
+}
+
+function isFixedBudgetPayment(payment) {
+  const hasFixedPayments = state.budgets.some(
+    (budget) => budget.month === BUDGET_MONTH,
+  );
+  return hasFixedPayments ? payment.month === BUDGET_MONTH : !payment.month;
 }
 
 function renderCategoryOptions() {
