@@ -7,6 +7,11 @@ const FIREBASE_SYNC = {
 const SYNC_DEBOUNCE_MS = 600;
 const SYNC_POLL_MS = 60 * 1000;
 const BUDGET_MONTH = "2026-05";
+const CREDIT_CARD_BUDGET_NAMES = {
+  Ziraat: "Ziraat",
+  Axess: "Akbank",
+  Garanti: "Garanti",
+};
 
 const monthFormatter = new Intl.DateTimeFormat("tr-TR", {
   month: "long",
@@ -145,9 +150,23 @@ function buildDemoData(month) {
     `${year}-${String(monthNumber).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   return {
     expenses: [
-      createExpense(date(3), "Market alışverişi", "Market", 2850, "Kart"),
-      createExpense(date(5), "Metro kartı", "Ulaşım", 600, "Kart"),
-      createExpense(date(8), "Kahve ve yemek", "Dışarıda Yemek", 920, "Kart"),
+      createExpense(
+        date(3),
+        "Market alışverişi",
+        "Market",
+        2850,
+        "Kart",
+        "Ziraat",
+      ),
+      createExpense(date(5), "Metro kartı", "Ulaşım", 600, "Kart", "Axess"),
+      createExpense(
+        date(8),
+        "Kahve ve yemek",
+        "Dışarıda Yemek",
+        920,
+        "Kart",
+        "Garanti",
+      ),
       createExpense(date(12), "Ev interneti", "Faturalar", 520, "Havale/EFT"),
     ],
     debts: [
@@ -202,12 +221,14 @@ function addExpense(event) {
   event.preventDefault();
   const form = new FormData(elements.expenseForm);
   const category = normalizeCategory(form.get("category"));
+  const creditCard = normalizeCreditCard(form.get("creditCard"));
   const values = {
     date: form.get("date"),
     description: category,
     category,
     amount: Number(form.get("amount")),
-    method: "-",
+    creditCard,
+    method: creditCard ? "Kart" : "-",
   };
 
   if (editingExpenseId) {
@@ -223,6 +244,7 @@ function addExpense(event) {
         values.category,
         values.amount,
         values.method,
+        values.creditCard,
       ),
     );
   }
@@ -247,6 +269,9 @@ function openExpenseEditModal(expenseId) {
   elements.expenseForm.date.value = expense.date;
   elements.expenseForm.amount.value = Number(expense.amount || 0);
   elements.expenseForm.category.value = expense.category;
+  elements.expenseForm.creditCard.value = normalizeCreditCard(
+    expense.creditCard,
+  );
   setExpenseFormMode(true);
   elements.expenseModal.hidden = false;
   elements.expenseModal.querySelector(".modal-panel").focus();
@@ -261,6 +286,7 @@ function resetExpenseForm() {
   elements.expenseForm.reset();
   elements.expenseForm.date.value = todayISO();
   elements.expenseForm.category.value = "";
+  elements.expenseForm.creditCard.value = "";
   editingExpenseId = null;
   setExpenseFormMode();
 }
@@ -558,7 +584,7 @@ function renderExpenseTable(expenses) {
             <td data-label="Tarih">${formatDate(expense.date)}</td>
             <td data-label="Açıklama">${escapeHTML(expense.description)}</td>
             <td data-label="Kategori">${escapeHTML(expense.category)}</td>
-            <td data-label="Yöntem">${escapeHTML(expense.method)}</td>
+            <td data-label="Kart">${escapeHTML(expense.creditCard || expense.method || "-")}</td>
             <td data-label="Tutar" class="amount-col">${money(expense.amount)}</td>
             <td>
               <div class="row-actions">
@@ -663,7 +689,7 @@ function renderBudgetTable(budgets) {
     "currentAmount",
   );
   const remainingTotal = currentTotal - paidTotal;
-  const nextTotal = sumPayments(budgets, "nextAmount");
+  const nextTotal = sumBudgetPaymentAmounts(budgets, "nextAmount");
 
   elements.budgetTable.innerHTML = budgets.length
     ? `
@@ -683,8 +709,17 @@ function renderBudgetTable(budgets) {
           </thead>
           <tbody>
             ${budgets
-              .map(
-                (payment) => `
+              .map((payment) => {
+                const nextAmount = budgetPaymentAmount(payment, "nextAmount");
+                const nextAmountReadonly = isCreditCardBudgetPayment(payment);
+                const readonlyAttributes = nextAmountReadonly
+                  ? 'readonly aria-readonly="true" title="Harcama kart seçimlerinden otomatik hesaplanır"'
+                  : "";
+                const nextInputClass = nextAmountReadonly
+                  ? "amount-input read-only-input"
+                  : "amount-input";
+
+                return `
                   <tr data-budget-row="${payment.id}">
                     <th>
                       <span class="budget-name-cell">
@@ -707,13 +742,13 @@ function renderBudgetTable(budgets) {
                     <td data-label="Gelecek ay" class="amount-col">
                       <span class="money-field">
                         <span aria-hidden="true">₺</span>
-                        <input class="amount-input" data-payment-amount="${payment.id}" data-payment-field="nextAmount" type="number" min="0" step="0.01" value="${editableMoney(paymentAmount(payment, "nextAmount"))}" />
+                        <input class="${nextInputClass}" data-payment-amount="${payment.id}" data-payment-field="nextAmount" type="number" min="0" step="0.01" value="${editableMoney(nextAmount)}" ${readonlyAttributes} />
                       </span>
                     </td>
                     <td><button class="row-action" data-delete-budget="${payment.id}" type="button">Sil</button></td>
                   </tr>
-                `,
-              )
+                `;
+              })
               .join("")}
           </tbody>
           <tfoot>
@@ -756,6 +791,7 @@ function renderBudgetTable(budgets) {
 
   document.querySelectorAll("[data-payment-amount]").forEach((input) => {
     input.addEventListener("change", () => {
+      if (input.readOnly) return;
       const payment = state.budgets.find(
         (budget) => budget.id === input.dataset.paymentAmount,
       );
@@ -827,7 +863,7 @@ function renderBudgetTable(budgets) {
 
 function rolloverBudgetPayments() {
   fixedBudgetPayments().forEach((payment) => {
-    payment.currentAmount = paymentAmount(payment, "nextAmount");
+    payment.currentAmount = budgetPaymentAmount(payment, "nextAmount");
     payment.nextAmount = 0;
     payment.paid = false;
   });
@@ -869,6 +905,51 @@ function isFixedBudgetPayment(payment) {
     (budget) => budget.month === BUDGET_MONTH,
   );
   return hasFixedPayments ? payment.month === BUDGET_MONTH : !payment.month;
+}
+
+function budgetPaymentAmount(payment, key) {
+  if (key !== "nextAmount") return paymentAmount(payment, key);
+
+  const budgetName = matchingCreditCardBudgetName(payment);
+  if (!budgetName) return paymentAmount(payment, key);
+
+  return monthlyCreditCardBudgetTotals(state.selectedMonth)[budgetName] || 0;
+}
+
+function sumBudgetPaymentAmounts(payments, key) {
+  return payments.reduce(
+    (total, payment) => total + budgetPaymentAmount(payment, key),
+    0,
+  );
+}
+
+function isCreditCardBudgetPayment(payment) {
+  return Boolean(matchingCreditCardBudgetName(payment));
+}
+
+function matchingCreditCardBudgetName(payment) {
+  const paymentName = normalizeBudgetName(payment.name || payment.category);
+  return Object.values(CREDIT_CARD_BUDGET_NAMES).find(
+    (budgetName) => normalizeBudgetName(budgetName) === paymentName,
+  );
+}
+
+function monthlyCreditCardBudgetTotals(month) {
+  const totals = Object.values(CREDIT_CARD_BUDGET_NAMES).reduce(
+    (acc, budgetName) => {
+      acc[budgetName] = 0;
+      return acc;
+    },
+    {},
+  );
+
+  monthlyExpenses(month).forEach((expense) => {
+    const budgetName =
+      CREDIT_CARD_BUDGET_NAMES[normalizeCreditCard(expense.creditCard)];
+    if (budgetName) totals[budgetName] += Number(expense.amount || 0);
+  });
+
+  return totals;
 }
 
 function renderCategoryOptions() {
@@ -965,7 +1046,14 @@ function isRecurringDebt(debt) {
   return debt.recurring === true;
 }
 
-function createExpense(date, description, category, amount, method) {
+function createExpense(
+  date,
+  description,
+  category,
+  amount,
+  method,
+  creditCard = "",
+) {
   return {
     id: newId(),
     date,
@@ -973,6 +1061,7 @@ function createExpense(date, description, category, amount, method) {
     category,
     amount,
     method,
+    creditCard: normalizeCreditCard(creditCard),
   };
 }
 
@@ -1192,6 +1281,16 @@ function normalizeCategory(value) {
     .trim()
     .replace(/\s+/g, " ")
     .replace(/^\w/, (letter) => letter.toLocaleUpperCase("tr-TR"));
+}
+
+function normalizeCreditCard(value) {
+  const card = String(value || "").trim();
+  if (card === "Akbank") return "Axess";
+  return CREDIT_CARD_BUDGET_NAMES[card] ? card : "";
+}
+
+function normalizeBudgetName(value) {
+  return String(value || "").trim().toLocaleLowerCase("tr-TR");
 }
 
 function emptyState(text) {

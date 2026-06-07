@@ -130,7 +130,7 @@
                       <th>Tarih</th>
                       <th>Açıklama</th>
                       <th>Kategori</th>
-                      <th>Yöntem</th>
+                      <th>Kart</th>
                       <th class="amount-col">Tutar</th>
                       <th></th>
                     </tr>
@@ -203,6 +203,15 @@
             <label>
               Kategori
               <select id="categoryOptions" name="category" required></select>
+            </label>
+            <label>
+              Kredi Kartı
+              <select name="creditCard" required>
+                <option value="" disabled selected>Kart seçin</option>
+                <option value="Ziraat">Ziraat</option>
+                <option value="Axess">Axess</option>
+                <option value="Garanti">Garanti</option>
+              </select>
             </label>
           </div>
           <button class="primary-action" type="submit">Harcama Ekle</button>

@@ -870,6 +870,16 @@ th {
   outline: none;
 }
 
+.amount-input.read-only-input {
+  color: #5f6761;
+  cursor: default;
+}
+
+.amount-input.read-only-input:focus {
+  background: transparent;
+  box-shadow: none;
+}
+
 .budget-sheet .paid-toggle {
   color: #111;
 }
