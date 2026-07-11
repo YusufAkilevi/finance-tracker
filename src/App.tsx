@@ -19,7 +19,7 @@ import {
   normalizeCreditCard,
   remainingDebt,
   sum,
-  sumPayments,
+  sumBudgetPaymentAmounts,
 } from "./lib/finance";
 import {
   addBudgetState,
@@ -94,9 +94,14 @@ function App() {
     (expense) => !isFixedHousingOrInstallmentExpense(expense),
   );
   const flexibleSpent = sum(flexibleExpenses, "amount");
-  const totalBudgeted = sumPayments(budgets, "currentAmount");
+  const totalBudgeted = sumBudgetPaymentAmounts(
+    state,
+    budgets,
+    "currentAmount",
+  );
   const totalDebtDue = sum(debtDue, "dueAmount");
-  const remaining = sumPayments(
+  const remaining = sumBudgetPaymentAmounts(
+    state,
     budgets.filter((budget) => !budget.paid),
     "currentAmount",
   );
@@ -223,6 +228,8 @@ function App() {
       ? 0
       : Number(formValue(form, "totalInstallments"));
     const values = {
+      creditCard: normalizeCreditCard(formValue(form, "creditCard")),
+      dueDay: Number(formValue(form, "dueDay")),
       name: formValue(form, "name").trim(),
       monthlyAmount: Number(formValue(form, "monthlyAmount")),
       totalInstallments,

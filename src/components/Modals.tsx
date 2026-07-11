@@ -180,6 +180,33 @@ export function DebtModal({
                 required
               />
             </label>
+            <label>
+              Ödeme Günü
+              <input
+                name="dueDay"
+                type="number"
+                min="1"
+                max="31"
+                step="1"
+                defaultValue={debt?.dueDay || 1}
+                required
+              />
+            </label>
+            <label>
+              Kredi Kartı
+              <select
+                name="creditCard"
+                defaultValue={normalizeCreditCard(debt?.creditCard)}
+                required
+              >
+                <option value="" disabled>
+                  Kart seçin
+                </option>
+                <option value="Ziraat">Ziraat</option>
+                <option value="Axess">Axess</option>
+                <option value="Garanti">Garanti</option>
+              </select>
+            </label>
             <label className="checkbox-field wide">
               <input
                 name="recurring"

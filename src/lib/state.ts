@@ -57,9 +57,9 @@ function buildDemoData(month: string) {
       createExpense(date(12), "Ev interneti", "Faturalar", 520, "Havale/EFT"),
     ],
     debts: [
-      createDebt("Beyaz eşya", 2000, 12, 4, subtractMonths(month, 4), 15, false),
-      createDebt("Yatak", 4200, 10, 2, subtractMonths(month, 2), 22, false),
-      createDebt("Bulut depolama", 249, 0, 0, subtractMonths(month, 1), 1, true),
+      createDebt("Beyaz eşya", 2000, 12, 4, subtractMonths(month, 4), 15, "", false),
+      createDebt("Yatak", 4200, 10, 2, subtractMonths(month, 2), 22, "", false),
+      createDebt("Bulut depolama", 249, 0, 0, subtractMonths(month, 1), 1, "", true),
     ],
     budgets: [
       createPayment(BUDGET_MONTH, "Kira", 53000, 53000, true),

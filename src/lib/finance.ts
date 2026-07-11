@@ -8,7 +8,7 @@ import type {
   Expense,
   FinanceState,
 } from "../types";
-import { monthDiff } from "./date";
+import { addMonths, monthDiff } from "./date";
 
 export function createExpense(
   date: string,
@@ -36,6 +36,7 @@ export function createDebt(
   paidInstallments: number,
   startMonth: string,
   dueDay: number,
+  creditCard: CreditCard | "" = "",
   recurring = false,
 ): Debt {
   return {
@@ -47,6 +48,7 @@ export function createDebt(
     paidInstallments,
     startMonth,
     dueDay,
+    creditCard: normalizeCreditCard(creditCard),
     recurring,
   };
 }
@@ -91,12 +93,36 @@ export function budgetPaymentAmount(
   payment: BudgetPayment,
   key: AmountKey,
 ) {
-  if (key !== "nextAmount") return paymentAmount(payment, key);
+  if (key === "currentAmount") {
+    return Math.max(
+      paymentAmount(payment, key) - budgetCurrentAmountDeduction(state, payment),
+      0,
+    );
+  }
 
   const budgetName = matchingCreditCardBudgetName(payment);
   if (!budgetName) return paymentAmount(payment, key);
 
-  return monthlyCreditCardBudgetTotals(state, state.selectedMonth)[budgetName] || 0;
+  return nextCreditCardBudgetTotals(state)[budgetName] || 0;
+}
+
+export function budgetCurrentAmountDeduction(
+  state: FinanceState,
+  payment: BudgetPayment,
+) {
+  if (!isTherapyBudgetPayment(payment)) return 0;
+
+  return monthlyExpenses(state, state.selectedMonth)
+    .filter((expense) => isTherapyName(expense.category))
+    .reduce((total, expense) => total + Number(expense.amount || 0), 0);
+}
+
+export function isTherapyBudgetPayment(payment: BudgetPayment) {
+  return isTherapyName(payment.name || payment.category);
+}
+
+function isTherapyName(value: unknown) {
+  return ["terapi", "therapy"].includes(normalizeBudgetName(value));
 }
 
 export function sumBudgetPaymentAmounts(
@@ -125,6 +151,25 @@ export function monthlyCreditCardBudgetTotals(
   state: FinanceState,
   month: string,
 ) {
+  return creditCardBudgetTotals(monthlyExpenses(state, month));
+}
+
+export function nextCreditCardBudgetTotals(state: FinanceState) {
+  const manuallyAddedThisMonth = state.expenses.filter((expense) =>
+    expense.date.startsWith(state.selectedMonth),
+  );
+  const automaticNextMonthInstallments = monthlyExpenses(
+    state,
+    addMonths(state.selectedMonth, 1),
+  ).filter((expense) => expense.sourceDebtId);
+
+  return creditCardBudgetTotals([
+    ...manuallyAddedThisMonth,
+    ...automaticNextMonthInstallments,
+  ]);
+}
+
+function creditCardBudgetTotals(expenses: Expense[]) {
   const totals = Object.values(CREDIT_CARD_BUDGET_NAMES).reduce<
     Record<string, number>
   >((acc, budgetName) => {
@@ -132,7 +177,7 @@ export function monthlyCreditCardBudgetTotals(
     return acc;
   }, {});
 
-  monthlyExpenses(state, month).forEach((expense) => {
+  expenses.forEach((expense) => {
     const budgetName = expense.creditCard
       ? CREDIT_CARD_BUDGET_NAMES[expense.creditCard]
       : undefined;
@@ -154,6 +199,7 @@ export function expenseCategories(state: FinanceState) {
       "Alışveriş",
       "BES",
       "Sağlık",
+      "Terapi",
       "Eğlence",
       "Diğer",
       ...state.expenses.map((expense) => expense.category),
@@ -162,7 +208,32 @@ export function expenseCategories(state: FinanceState) {
 }
 
 export function monthlyExpenses(state: FinanceState, month: string) {
-  return state.expenses.filter((expense) => expense.date.startsWith(month));
+  const savedExpenses = state.expenses.filter((expense) =>
+    expense.date.startsWith(month),
+  );
+  const generatedInstallments = state.debts
+    .filter(
+      (debt) => debt.creditCard && scheduledDebtPayment(debt, month) > 0,
+    )
+    .map((debt): Expense => ({
+      id: `installment:${debt.id}:${month}`,
+      date: installmentDate(month, debt.dueDay),
+      description: debt.name,
+      category: "Taksit",
+      amount: scheduledDebtPayment(debt, month),
+      method: "Kart",
+      creditCard: normalizeCreditCard(debt.creditCard),
+      sourceDebtId: debt.id,
+    }));
+
+  return [...savedExpenses, ...generatedInstallments];
+}
+
+function installmentDate(month: string, dueDay: number) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  const day = Math.min(Math.max(Number(dueDay) || 1, 1), lastDay);
+  return `${month}-${String(day).padStart(2, "0")}`;
 }
 
 export function isFixedHousingOrInstallmentExpense(expense: Expense) {

@@ -1,6 +1,7 @@
 import { BUDGET_MONTH } from "../constants";
 import type { AmountKey, BudgetPayment, CreditCard, FinanceState } from "../types";
 import {
+  budgetCurrentAmountDeduction,
   budgetPaymentAmount,
   createDebt,
   createExpense,
@@ -19,6 +20,8 @@ export type ExpenseValues = {
 };
 
 export type DebtValues = {
+  creditCard: CreditCard | "";
+  dueDay: number;
   monthlyAmount: number;
   name: string;
   recurring: boolean;
@@ -105,7 +108,8 @@ export function saveDebtState(
         values.totalInstallments,
         0,
         values.startMonth,
-        1,
+        values.dueDay,
+        values.creditCard,
         values.recurring,
       ),
     ],
@@ -147,11 +151,25 @@ export function updateBudgetAmountState(
   key: AmountKey,
   value: string,
 ) {
+  const payment = current.budgets.find((item) => item.id === paymentId);
+  const enteredAmount = Number(value || 0);
+  const storedAmount =
+    key === "currentAmount" && payment
+      ? enteredAmount + budgetCurrentAmountDeduction(current, payment)
+      : enteredAmount;
+
+  if (
+    payment &&
+    budgetPaymentAmount(current, payment, key) === enteredAmount
+  ) {
+    return current;
+  }
+
   return {
     ...current,
     budgets: current.budgets.map((payment) =>
       payment.id === paymentId
-        ? { ...payment, [key]: Number(value || 0) }
+        ? { ...payment, [key]: storedAmount }
         : payment,
     ),
   };

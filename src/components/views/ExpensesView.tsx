@@ -96,22 +96,26 @@ export function ExpensesView({
                         {money(expense.amount)}
                       </td>
                       <td>
-                        <div className="row-actions">
-                          <button
-                            className="row-action"
-                            type="button"
-                            onClick={() => onEditExpense(expense.id)}
-                          >
-                            Düzenle
-                          </button>
-                          <button
-                            className="row-action"
-                            type="button"
-                            onClick={() => onDeleteExpense(expense.id)}
-                          >
-                            Sil
-                          </button>
-                        </div>
+                        {expense.sourceDebtId ? (
+                          <span className="generated-expense-label">Otomatik</span>
+                        ) : (
+                          <div className="row-actions">
+                            <button
+                              className="row-action"
+                              type="button"
+                              onClick={() => onEditExpense(expense.id)}
+                            >
+                              Düzenle
+                            </button>
+                            <button
+                              className="row-action"
+                              type="button"
+                              onClick={() => onDeleteExpense(expense.id)}
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

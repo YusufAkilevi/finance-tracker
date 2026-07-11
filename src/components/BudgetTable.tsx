@@ -3,9 +3,7 @@ import {
   budgetPaymentAmount,
   editableMoney,
   isCreditCardBudgetPayment,
-  paymentAmount,
   sumBudgetPaymentAmounts,
-  sumPayments,
 } from "../lib/finance";
 import { budgetMoney } from "../lib/format";
 import type { AmountKey, BudgetPayment, FinanceState } from "../types";
@@ -33,8 +31,9 @@ export function BudgetTable({
   onRollover,
   onTogglePaid,
 }: BudgetTableProps) {
-  const currentTotal = sumPayments(budgets, "currentAmount");
-  const paidTotal = sumPayments(
+  const currentTotal = sumBudgetPaymentAmounts(state, budgets, "currentAmount");
+  const paidTotal = sumBudgetPaymentAmounts(
+    state,
     budgets.filter((budget) => budget.paid),
     "currentAmount",
   );
@@ -60,6 +59,11 @@ export function BudgetTable({
         </thead>
         <tbody>
           {budgets.map((payment) => {
+            const currentAmount = budgetPaymentAmount(
+              state,
+              payment,
+              "currentAmount",
+            );
             const nextAmount = budgetPaymentAmount(state, payment, "nextAmount");
             const nextAmountReadonly = isCreditCardBudgetPayment(payment);
             return (
@@ -88,11 +92,12 @@ export function BudgetTable({
                   <span className="money-field">
                     <span aria-hidden="true">₺</span>
                     <input
+                      key={`${payment.id}-${currentAmount}`}
                       className="amount-input"
                       type="number"
                       min="0"
                       step="0.01"
-                      defaultValue={editableMoney(paymentAmount(payment, "currentAmount"))}
+                      defaultValue={editableMoney(currentAmount)}
                       onBlur={(event) =>
                         onAmountChange(payment.id, "currentAmount", event.target.value)
                       }

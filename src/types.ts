@@ -10,6 +10,7 @@ export type Expense = {
   amount: number;
   method: string;
   creditCard: CreditCard | "";
+  sourceDebtId?: string;
 };
 
 export type Debt = {
@@ -21,6 +22,7 @@ export type Debt = {
   paidInstallments: number;
   startMonth: string;
   dueDay: number;
+  creditCard: CreditCard | "";
   recurring: boolean;
 };
 
