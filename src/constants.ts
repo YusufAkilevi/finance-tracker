@@ -20,8 +20,8 @@ export const CREDIT_CARD_BUDGET_NAMES: Record<CreditCard, string> = {
 export const VIEW_TITLES: Record<View, string> = {
   dashboard: "Özet",
   expenses: "Harcamalar",
-  debts: "Genel Taksit",
-  budgets: "Bütçe",
+  debts: "Taksitler",
+  budgets: "Ödeme Planı",
 };
 
 export const ALL_MONTH_NUMBERS = [

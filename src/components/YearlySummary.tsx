@@ -32,7 +32,9 @@ export function YearlySummary({ expenses }: YearlySummaryProps) {
     history[year] ||= {};
     history[year][month] = (history[year][month] || 0) + expense.amount;
   });
-  const years = Array.from(yearsSet).sort();
+  // Keep the latest year closest to the month labels. On narrow screens the
+  // table intentionally shows that first year and hides older comparison years.
+  const years = Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
 
   return (
     <div className="table-wrap">

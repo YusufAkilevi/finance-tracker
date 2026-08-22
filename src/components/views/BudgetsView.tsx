@@ -18,6 +18,7 @@ type BudgetsViewProps = {
   onAmountChange: (paymentId: string, key: AmountKey, value: string) => void;
   onDeleteBudget: (paymentId: string) => void;
   onDragStart: (event: PointerEvent<HTMLSpanElement>, id: string) => void;
+  onMoveBudget: (paymentId: string, direction: -1 | 1) => void;
   onRollover: () => void;
   onTogglePaid: (paymentId: string, paid: boolean) => void;
 };
@@ -32,6 +33,7 @@ export function BudgetsView({
   onAmountChange,
   onDeleteBudget,
   onDragStart,
+  onMoveBudget,
   onRollover,
   onTogglePaid,
 }: BudgetsViewProps) {
@@ -55,7 +57,7 @@ export function BudgetsView({
           <div className="panel-heading">
             <div>
               <h3>Aylık Ödemeler</h3>
-              <p className="panel-note">Bu ay ve gelecek ay ödeme planı</p>
+              <p className="panel-note">Aylık tutarları yan yana karşılaştırın</p>
             </div>
           </div>
           <div className="payment-plan">
@@ -68,6 +70,7 @@ export function BudgetsView({
                 onAmountChange={onAmountChange}
                 onDelete={onDeleteBudget}
                 onDragStart={onDragStart}
+                onMove={onMoveBudget}
                 onRollover={onRollover}
                 onTogglePaid={onTogglePaid}
               />

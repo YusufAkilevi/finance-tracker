@@ -12,6 +12,7 @@ export function NavButton({ active, icon, label, onClick }: NavButtonProps) {
     <button
       className={`nav-tab ${active ? "active" : ""}`}
       type="button"
+      aria-current={active ? "page" : undefined}
       onClick={onClick}
     >
       <NavIcon icon={icon} />

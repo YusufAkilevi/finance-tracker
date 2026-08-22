@@ -6,6 +6,7 @@ import {
   sumBudgetPaymentAmounts,
 } from "../lib/finance";
 import { budgetMoney } from "../lib/format";
+import { addMonths, shortMonth } from "../lib/date";
 import type { AmountKey, BudgetPayment, FinanceState } from "../types";
 
 type BudgetTableProps = {
@@ -16,6 +17,7 @@ type BudgetTableProps = {
   onAmountChange: (paymentId: string, key: AmountKey, value: string) => void;
   onDelete: (paymentId: string) => void;
   onDragStart: (event: PointerEvent<HTMLSpanElement>, id: string) => void;
+  onMove: (paymentId: string, direction: -1 | 1) => void;
   onRollover: () => void;
   onTogglePaid: (paymentId: string, paid: boolean) => void;
 };
@@ -28,6 +30,7 @@ export function BudgetTable({
   onAmountChange,
   onDelete,
   onDragStart,
+  onMove,
   onRollover,
   onTogglePaid,
 }: BudgetTableProps) {
@@ -39,26 +42,30 @@ export function BudgetTable({
   );
   const remainingTotal = currentTotal - paidTotal;
   const nextTotal = sumBudgetPaymentAmounts(state, budgets, "nextAmount");
+  const nextPaidTotal = 0;
+  const nextRemainingTotal = nextTotal - nextPaidTotal;
+  const currentMonthLabel = shortMonth(state.selectedMonth);
+  const nextMonthLabel = shortMonth(addMonths(state.selectedMonth, 1));
 
   return (
     <div className="payment-table-wrap">
       <table className="payment-table budget-sheet">
         <thead>
           <tr>
-            <th></th>
-            <th className="amount-col">Bu ay</th>
+            <th><span className="payment-column-label">Ödeme</span></th>
+            <th className="amount-col">{currentMonthLabel}</th>
             <th>
               <button className="rollover-button" type="button" onClick={onRollover}>
                 Ayı Aktar
               </button>
               <span>Durum</span>
             </th>
-            <th className="amount-col">Gelecek ay</th>
+            <th className="amount-col">{nextMonthLabel}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {budgets.map((payment) => {
+          {budgets.map((payment, index) => {
             const currentAmount = budgetPaymentAmount(
               state,
               payment,
@@ -85,10 +92,14 @@ export function BudgetTable({
                       aria-label="Sırayı değiştir"
                       onPointerDown={(event) => onDragStart(event, payment.id)}
                     ></span>
-                    <span>{payment.name || payment.category || "Ödeme"}</span>
+                    <span className="budget-payment-name">{payment.name || payment.category || "Ödeme"}</span>
+                    <span className="budget-reorder-buttons desktop-budget-reorder">
+                      <button type="button" aria-label={`${payment.name || "Ödeme"} yukarı taşı`} disabled={index === 0} onClick={() => onMove(payment.id, -1)}>↑</button>
+                      <button type="button" aria-label={`${payment.name || "Ödeme"} aşağı taşı`} disabled={index === budgets.length - 1} onClick={() => onMove(payment.id, 1)}>↓</button>
+                    </span>
                   </span>
                 </th>
-                <td data-label="Bu ay" className="amount-col">
+                <td data-label={currentMonthLabel} className="amount-col">
                   <span className="money-field">
                     <span aria-hidden="true">₺</span>
                     <input
@@ -114,7 +125,7 @@ export function BudgetTable({
                     <span>{payment.paid ? "Ödendi" : "Bekliyor"}</span>
                   </label>
                 </td>
-                <td data-label="Gelecek ay" className="amount-col">
+                <td data-label={nextMonthLabel} className="amount-col">
                   <span className="money-field">
                     <span aria-hidden="true">₺</span>
                     <input
@@ -138,10 +149,12 @@ export function BudgetTable({
                     />
                   </span>
                 </td>
-                <td>
-                  <button className="row-action" type="button" onClick={() => onDelete(payment.id)}>
-                    Sil
-                  </button>
+                <td className="budget-row-actions-cell">
+                  <span className="mobile-budget-reorder">
+                    <button type="button" aria-label={`${payment.name || "Ödeme"} yukarı taşı`} disabled={index === 0} onClick={() => onMove(payment.id, -1)}>↑</button>
+                    <button type="button" aria-label={`${payment.name || "Ödeme"} aşağı taşı`} disabled={index === budgets.length - 1} onClick={() => onMove(payment.id, 1)}>↓</button>
+                  </span>
+                  <button className="row-action" type="button" onClick={() => onDelete(payment.id)}>Sil</button>
                 </td>
               </tr>
             );
@@ -149,24 +162,32 @@ export function BudgetTable({
         </tbody>
         <tfoot>
           <tr className="total-row">
-            <th>Bu Ay Toplam Borç</th>
-            <td className="amount-col">{budgetMoney(currentTotal)}</td>
+            <th>Aylık toplam</th>
+            <td className="amount-col" data-label={currentMonthLabel}>{budgetMoney(currentTotal)}</td>
             <td></td>
-            <td className="amount-col">{budgetMoney(nextTotal)}</td>
+            <td className="amount-col" data-label={nextMonthLabel}>{budgetMoney(nextTotal)}</td>
             <td></td>
           </tr>
           <tr className="remaining-row">
             <th>Kalan Borç</th>
-            <td className="amount-col">{budgetMoney(remainingTotal)}</td>
+            <td className="amount-col" data-label={currentMonthLabel}>
+              {budgetMoney(remainingTotal)}
+            </td>
             <td></td>
-            <td></td>
+            <td className="amount-col" data-label={nextMonthLabel}>
+              {budgetMoney(nextRemainingTotal)}
+            </td>
             <td></td>
           </tr>
           <tr className="paid-row">
             <th>Ödenen Borç</th>
-            <td className="amount-col">{budgetMoney(paidTotal)}</td>
+            <td className="amount-col" data-label={currentMonthLabel}>
+              {budgetMoney(paidTotal)}
+            </td>
             <td></td>
-            <td></td>
+            <td className="amount-col" data-label={nextMonthLabel}>
+              {budgetMoney(nextPaidTotal)}
+            </td>
             <td></td>
           </tr>
         </tfoot>

@@ -51,11 +51,19 @@ export function DebtsView({
           <div className="panel-heading">
             <div>
               <h3>Genel Taksit Tablosu</h3>
-              <p className="panel-note">Seçili aydan itibaren 12 aylık plan</p>
+              <p className="panel-note">
+                Seçili aydan itibaren 12 aylık plan
+                <span className="mobile-scroll-hint">
+                  Tüm aylar için yatay kaydırın
+                </span>
+              </p>
             </div>
           </div>
           <div className="table-wrap">
-            <table className="schedule-grid-table">
+            <table
+              className="schedule-grid-table"
+              aria-label="Seçili aydan itibaren 12 aylık taksit planı"
+            >
               {activeDebts.length ? (
                 <>
                   <thead>

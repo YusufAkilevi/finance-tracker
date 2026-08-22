@@ -1,7 +1,12 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { VIEW_TITLES } from "./constants";
 import { NavButton } from "./components/Nav";
-import { BudgetModal, DebtModal, ExpenseModal } from "./components/Modals";
+import {
+  BudgetModal,
+  ConfirmDialog,
+  DebtModal,
+  ExpenseModal,
+} from "./components/Modals";
 import { BudgetsView } from "./components/views/BudgetsView";
 import { DashboardView } from "./components/views/DashboardView";
 import { DebtsView } from "./components/views/DebtsView";
@@ -48,6 +53,13 @@ function App() {
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
   const [debtRecurring, setDebtRecurring] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
   const stateRef = useRef(state);
 
   stateRef.current = state;
@@ -119,6 +131,12 @@ function App() {
   useEffect(() => {
     document.body.dataset.view = view;
   }, [view]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -213,11 +231,22 @@ function App() {
       saveExpenseState(current, editingExpenseId, values),
     );
 
+    setToast(editingExpenseId ? "Harcama güncellendi." : "Harcama eklendi.");
     closeExpenseModal();
   }
 
   function deleteExpense(expenseId: string) {
-    updateState((current) => deleteExpenseState(current, expenseId));
+    const expense = stateRef.current.expenses.find((item) => item.id === expenseId);
+    setConfirmation({
+      title: "Harcamayı sil?",
+      description: `${expense?.category || "Bu harcama"} kaydı kalıcı olarak silinecek. Bu işlem geri alınamaz.`,
+      confirmLabel: "Harcamayı sil",
+      onConfirm: () => {
+        updateState((current) => deleteExpenseState(current, expenseId));
+        setConfirmation(null);
+        setToast("Harcama silindi.");
+      },
+    });
   }
 
   function addDebt(event: FormEvent<HTMLFormElement>) {
@@ -239,11 +268,22 @@ function App() {
 
     updateState((current) => saveDebtState(current, editingDebtId, values));
 
+    setToast(editingDebtId ? "Taksit güncellendi." : "Taksit eklendi.");
     closeDebtModal();
   }
 
   function deleteDebt(debtId: string) {
-    updateState((current) => deleteDebtState(current, debtId));
+    const debt = stateRef.current.debts.find((item) => item.id === debtId);
+    setConfirmation({
+      title: "Taksidi sil?",
+      description: `${debt?.name || "Bu taksit"} ve otomatik oluşturduğu gelecek kayıtlar kalıcı olarak silinecek.`,
+      confirmLabel: "Taksidi sil",
+      onConfirm: () => {
+        updateState((current) => deleteDebtState(current, debtId));
+        setConfirmation(null);
+        setToast("Taksit silindi.");
+      },
+    });
   }
 
   function addBudget(event: FormEvent<HTMLFormElement>) {
@@ -257,11 +297,22 @@ function App() {
         Number(formValue(form, "nextAmount")),
       ),
     );
+    setToast("Ödeme plana eklendi.");
     closeBudgetModal();
   }
 
   function deleteBudget(paymentId: string) {
-    updateState((current) => deleteBudgetState(current, paymentId));
+    const payment = stateRef.current.budgets.find((item) => item.id === paymentId);
+    setConfirmation({
+      title: "Ödemeyi sil?",
+      description: `${payment?.name || payment?.category || "Bu ödeme"} ödeme planından kalıcı olarak kaldırılacak.`,
+      confirmLabel: "Ödemeyi sil",
+      onConfirm: () => {
+        updateState((current) => deleteBudgetState(current, paymentId));
+        setConfirmation(null);
+        setToast("Ödeme plandan silindi.");
+      },
+    });
   }
 
   function updateBudgetAmount(paymentId: string, key: AmountKey, value: string) {
@@ -276,6 +327,7 @@ function App() {
 
   function rolloverBudgetPayments() {
     updateState(rolloverBudgetPaymentsState);
+    setToast("Gelecek ay tutarları bu aya aktarıldı.");
   }
 
   function reorderBudgetPayment(draggedId: string, targetId: string) {
@@ -284,21 +336,28 @@ function App() {
     );
   }
 
+  function moveBudgetPayment(paymentId: string, direction: -1 | 1) {
+    const index = budgets.findIndex((payment) => payment.id === paymentId);
+    const target = budgets[index + direction];
+    if (!target) return;
+    reorderBudgetPayment(paymentId, target.id);
+  }
+
   return (
     <>
       <div className="app-shell">
-        <aside className="sidebar" aria-label="Application navigation">
+        <aside className="sidebar" aria-label="Uygulama gezinmesi">
           <div className="brand">
             <span className="brand-mark" aria-hidden="true">
-              FT
+              <span>₺</span>
             </span>
             <div>
-              <p className="eyebrow">Kişisel Finans</p>
-              <h1>Finans Takipçisi</h1>
+              <p className="eyebrow">Aylık defter</p>
+              <h1>Finans Takip</h1>
             </div>
           </div>
 
-          <nav className="nav-tabs" aria-label="Primary">
+          <nav className="nav-tabs" aria-label="Ana gezinme">
             <NavButton
               icon="dashboard"
               label="Özet"
@@ -313,20 +372,20 @@ function App() {
             />
             <NavButton
               icon="debts"
-              label="Genel Taksit"
+              label="Taksitler"
               active={view === "debts"}
               onClick={() => setView("debts")}
             />
             <NavButton
               icon="budgets"
-              label="Bütçe"
+              label="Ödeme Planı"
               active={view === "budgets"}
               onClick={() => setView("budgets")}
             />
           </nav>
 
           <div className="sidebar-card">
-            <label htmlFor="monthPicker">Ay</label>
+            <label htmlFor="monthPicker">Çalışma ayı</label>
             <input
               id="monthPicker"
               type="month"
@@ -337,27 +396,31 @@ function App() {
 
           <div className="sync-panel">
             <div>
-              <span>Sync</span>
-              <strong>{syncStatus}</strong>
+              <span>Eşitleme</span>
+              <strong>{syncStatusLabel(syncStatus)}</strong>
             </div>
             {isFirebaseSyncConfigured() ? (
               <button
                 type="button"
                 onClick={() => void pullRemoteState({ manual: true })}
               >
-                Sync now
+                Şimdi eşitle
               </button>
             ) : null}
           </div>
         </aside>
 
         <main className="main-content">
-          <section className="page-header">
+          <header className="page-header">
             <div>
-              <p className="eyebrow">{longMonth(state.selectedMonth)}</p>
-              <h2>{VIEW_TITLES[view]}</h2>
+              <p className="eyebrow">Kişisel finans görünümü</p>
+              <h2 id="viewTitle">{VIEW_TITLES[view]}</h2>
             </div>
-          </section>
+            <div className="month-folio" aria-label={`Seçili ay: ${longMonth(state.selectedMonth)}`}>
+              <span>Çalışma ayı</span>
+              <strong>{longMonth(state.selectedMonth)}</strong>
+            </div>
+          </header>
 
           <DashboardView
             activeView={view}
@@ -404,6 +467,7 @@ function App() {
             onAmountChange={updateBudgetAmount}
             onDeleteBudget={deleteBudget}
             onDragStart={startBudgetDrag}
+            onMoveBudget={moveBudgetPayment}
             onRollover={rolloverBudgetPayments}
             onTogglePaid={toggleBudgetPaid}
           />
@@ -433,8 +497,34 @@ function App() {
       {budgetModalOpen ? (
         <BudgetModal onClose={closeBudgetModal} onSubmit={addBudget} />
       ) : null}
+
+      {confirmation ? (
+        <ConfirmDialog
+          title={confirmation.title}
+          description={confirmation.description}
+          confirmLabel={confirmation.confirmLabel}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={confirmation.onConfirm}
+        />
+      ) : null}
+
+      <div className="toast-region" aria-live="polite" aria-atomic="true">
+        {toast ? <div className="toast"><span aria-hidden="true">✓</span>{toast}</div> : null}
+      </div>
     </>
   );
 }
 
 export default App;
+
+function syncStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    "Local only": "Yalnızca yerel",
+    Syncing: "Eşitleniyor…",
+    Checking: "Kontrol ediliyor…",
+    Saving: "Kaydediliyor…",
+    Synced: "Güncel",
+    "Sync error": "Eşitleme hatası",
+  };
+  return labels[status] || status;
+}
