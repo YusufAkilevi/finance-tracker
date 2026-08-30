@@ -1,18 +1,16 @@
 import { EmptyState } from "../EmptyState";
 import {
-  monthlyDebtDue,
+  groupDebtSchedulesByPerson,
   scheduledDebtPayment,
-  sum,
 } from "../../lib/finance";
 import { shortMonth } from "../../lib/date";
 import { money } from "../../lib/format";
-import type { Debt, FinanceState, View } from "../../types";
+import type { Debt, View } from "../../types";
 
 type DebtsViewProps = {
   activeView: View;
   activeDebts: Debt[];
   scheduleMonths: string[];
-  state: FinanceState;
   onAddDebt: () => void;
   onDeleteDebt: (debtId: string) => void;
   onEditDebt: (debtId: string) => void;
@@ -22,13 +20,13 @@ export function DebtsView({
   activeView,
   activeDebts,
   scheduleMonths,
-  state,
   onAddDebt,
   onDeleteDebt,
   onEditDebt,
 }: DebtsViewProps) {
-  const scheduleMonthTotals = scheduleMonths.map((month) =>
-    sum(monthlyDebtDue(state, month), "dueAmount"),
+  const personSchedules = groupDebtSchedulesByPerson(
+    activeDebts,
+    scheduleMonths,
   );
 
   return (
@@ -47,25 +45,28 @@ export function DebtsView({
         </button>
       </div>
       <div className="content-grid debt-content-grid">
-        <section className="panel installment-schedule-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Genel Taksit Tablosu</h3>
-              <p className="panel-note">
-                Seçili aydan itibaren 12 aylık plan
-                <span className="mobile-scroll-hint">
-                  Tüm aylar için yatay kaydırın
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="table-wrap">
-            <table
-              className="schedule-grid-table"
-              aria-label="Seçili aydan itibaren 12 aylık taksit planı"
+        {personSchedules.length ? (
+          personSchedules.map((schedule) => (
+            <section
+              className="panel installment-schedule-panel"
+              key={schedule.person}
             >
-              {activeDebts.length ? (
-                <>
+              <div className="panel-heading">
+                <div>
+                  <h3>{schedule.person} Taksit Tablosu</h3>
+                  <p className="panel-note">
+                    Seçili aydan itibaren 12 aylık plan
+                    <span className="mobile-scroll-hint">
+                      Tüm aylar için yatay kaydırın
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="table-wrap">
+                <table
+                  className="schedule-grid-table"
+                  aria-label={`${schedule.person} için seçili aydan itibaren 12 aylık taksit planı`}
+                >
                   <thead>
                     <tr>
                       <th>Taksit</th>
@@ -78,14 +79,23 @@ export function DebtsView({
                     </tr>
                   </thead>
                   <tbody>
-                    {activeDebts.map((debt) => (
+                    {schedule.debts.map((debt) => (
                       <tr key={debt.id}>
                         <th>{debt.name}</th>
                         {scheduleMonths.map((month) => {
                           const payment = scheduledDebtPayment(debt, month);
                           return (
                             <td key={month} className="amount-col">
-                              {payment > 0 ? money(payment) : ""}
+                              {payment > 0 ? (
+                                <span className="installment-payment">
+                                  <span>{money(payment)}</span>
+                                  {debt.creditCard ? (
+                                    <small>{debt.creditCard}</small>
+                                  ) : null}
+                                </span>
+                              ) : (
+                                ""
+                              )}
                             </td>
                           );
                         })}
@@ -113,7 +123,7 @@ export function DebtsView({
                   <tfoot>
                     <tr className="total-row">
                       <th>Taksit Toplam</th>
-                      {scheduleMonthTotals.map((total, index) => (
+                      {schedule.monthTotals.map((total, index) => (
                         <td key={scheduleMonths[index]} className="amount-col">
                           {money(total)}
                         </td>
@@ -121,19 +131,15 @@ export function DebtsView({
                       <td></td>
                     </tr>
                   </tfoot>
-                </>
-              ) : (
-                <tbody>
-                  <tr>
-                    <td>
-                      <EmptyState text="Henüz taksitli borç eklenmedi." />
-                    </td>
-                  </tr>
-                </tbody>
-              )}
-            </table>
-          </div>
-        </section>
+                </table>
+              </div>
+            </section>
+          ))
+        ) : (
+          <section className="panel installment-schedule-panel">
+            <EmptyState text="Henüz taksitli borç eklenmedi." />
+          </section>
+        )}
       </div>
     </section>
   );

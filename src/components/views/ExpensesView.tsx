@@ -1,18 +1,20 @@
 import { BarList } from "../BarList";
 import { EmptyState } from "../EmptyState";
-import { sortedTotals } from "../../lib/finance";
+import { sortedTotals, sum } from "../../lib/finance";
 import { formatDate, money } from "../../lib/format";
-import type { Expense, View } from "../../types";
+import type { Expense, ExpenseCardFilter, View } from "../../types";
 
 type ExpensesViewProps = {
   activeView: View;
   categories: string[];
   expenses: Expense[];
   filteredExpenses: Expense[];
+  selectedCreditCardFilter: ExpenseCardFilter;
   selectedExpenseFilter: string;
   onAddExpense: () => void;
   onDeleteExpense: (expenseId: string) => void;
   onEditExpense: (expenseId: string) => void;
+  onCreditCardFilterChange: (creditCard: ExpenseCardFilter) => void;
   onFilterChange: (category: string) => void;
 };
 
@@ -21,10 +23,12 @@ export function ExpensesView({
   categories,
   expenses,
   filteredExpenses,
+  selectedCreditCardFilter,
   selectedExpenseFilter,
   onAddExpense,
   onDeleteExpense,
   onEditExpense,
+  onCreditCardFilterChange,
   onFilterChange,
 }: ExpensesViewProps) {
   return (
@@ -57,18 +61,35 @@ export function ExpensesView({
         <section className="panel">
           <div className="panel-heading split-heading">
             <h3>Aylık Harcamalar</h3>
-            <select
-              aria-label="Harcamaları kategoriye göre filtrele"
-              value={selectedExpenseFilter}
-              onChange={(event) => onFilterChange(event.target.value)}
-            >
-              <option value="">Tüm harcama türleri</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+            <div className="expense-filter-controls">
+              <select
+                aria-label="Harcamaları kategoriye göre filtrele"
+                value={selectedExpenseFilter}
+                onChange={(event) => onFilterChange(event.target.value)}
+              >
+                <option value="">Tüm harcama türleri</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Harcamaları kredi kartına göre filtrele"
+                value={selectedCreditCardFilter}
+                onChange={(event) =>
+                  onCreditCardFilterChange(
+                    event.target.value as ExpenseCardFilter,
+                  )
+                }
+              >
+                <option value="">Tüm kartlar</option>
+                <option value="Ziraat">Ziraat</option>
+                <option value="Axess">Axess</option>
+                <option value="Garanti">Garanti</option>
+                <option value="cardless">Kartsız</option>
+              </select>
+            </div>
           </div>
           <div className="table-wrap">
             <table>
@@ -128,6 +149,14 @@ export function ExpensesView({
                 )}
               </tbody>
             </table>
+          </div>
+          <div
+            className="expense-filter-total"
+            role="status"
+            aria-live="polite"
+          >
+            <span>Filtrelenen Toplam</span>
+            <strong>{money(sum(filteredExpenses, "amount"))}</strong>
           </div>
         </section>
       </div>

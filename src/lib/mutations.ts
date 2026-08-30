@@ -24,6 +24,7 @@ export type DebtValues = {
   dueDay: number;
   monthlyAmount: number;
   name: string;
+  person: string;
   recurring: boolean;
   startMonth: string;
   totalInstallments: number;
@@ -111,6 +112,7 @@ export function saveDebtState(
         values.dueDay,
         values.creditCard,
         values.recurring,
+        values.person,
       ),
     ],
   };

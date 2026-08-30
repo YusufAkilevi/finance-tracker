@@ -1,7 +1,12 @@
 import { BUDGET_MONTH } from "../constants";
 import type { FinanceState } from "../types";
 import { currentMonth, subtractMonths } from "./date";
-import { createDebt, createExpense, createPayment } from "./finance";
+import {
+  createDebt,
+  createExpense,
+  createPayment,
+  normalizeDebtPerson,
+} from "./finance";
 
 export function defaultState(withDemoData = false): FinanceState {
   const selectedMonth = currentMonth();
@@ -26,7 +31,12 @@ export function normalizeState(value: unknown): FinanceState {
     ...source,
     selectedMonth: source.selectedMonth || fallback.selectedMonth,
     expenses: Array.isArray(source.expenses) ? source.expenses : [],
-    debts: Array.isArray(source.debts) ? source.debts : [],
+    debts: Array.isArray(source.debts)
+      ? source.debts.map((debt) => ({
+          ...debt,
+          person: normalizeDebtPerson(debt.person),
+        }))
+      : [],
     budgets: Array.isArray(source.budgets) ? source.budgets : [],
     updatedAt: source.updatedAt || fallback.updatedAt,
   };

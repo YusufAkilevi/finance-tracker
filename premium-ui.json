@@ -16,8 +16,9 @@
     "Date": "native",
     "Form": "authored"
   },
-  "requiredCommands": ["build"],
+  "requiredCommands": ["unit", "build"],
   "commands": {
+    "unit": "npm test",
     "build": "npm run build"
   }
 }

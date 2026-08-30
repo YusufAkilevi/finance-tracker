@@ -1,4 +1,8 @@
-import { BUDGET_MONTH, CREDIT_CARD_BUDGET_NAMES } from "../constants";
+import {
+  ALL_MONTH_NUMBERS,
+  BUDGET_MONTH,
+  CREDIT_CARD_BUDGET_NAMES,
+} from "../constants";
 import type {
   AmountKey,
   BudgetPayment,
@@ -6,9 +10,11 @@ import type {
   Debt,
   DebtDue,
   Expense,
+  ExpenseCardFilter,
   FinanceState,
+  PersonDebtSchedule,
 } from "../types";
-import { addMonths, monthDiff } from "./date";
+import { monthDiff } from "./date";
 
 export function createExpense(
   date: string,
@@ -38,10 +44,12 @@ export function createDebt(
   dueDay: number,
   creditCard: CreditCard | "" = "",
   recurring = false,
+  person = "Ben",
 ): Debt {
   return {
     id: newId(),
     name,
+    person: normalizeDebtPerson(person),
     monthlyAmount,
     total: recurring ? 0 : monthlyAmount * totalInstallments,
     totalInstallments,
@@ -51,6 +59,37 @@ export function createDebt(
     creditCard: normalizeCreditCard(creditCard),
     recurring,
   };
+}
+
+export function normalizeDebtPerson(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "Ben";
+}
+
+export function isOwnDebt(debt: Debt) {
+  return normalizeDebtPerson(debt.person).toLocaleLowerCase("tr-TR") === "ben";
+}
+
+export function groupDebtSchedulesByPerson(
+  debts: Debt[],
+  months: string[],
+): PersonDebtSchedule[] {
+  const schedules = new Map<string, PersonDebtSchedule>();
+
+  debts.forEach((debt) => {
+    const person = normalizeDebtPerson(debt.person);
+    const schedule = schedules.get(person) || {
+      person,
+      debts: [],
+      monthTotals: months.map(() => 0),
+    };
+    schedule.debts.push(debt);
+    schedule.monthTotals = schedule.monthTotals.map(
+      (total, index) => total + scheduledDebtPayment(debt, months[index]),
+    );
+    schedules.set(person, schedule);
+  });
+
+  return [...schedules.values()];
 }
 
 export function createPayment(
@@ -155,18 +194,7 @@ export function monthlyCreditCardBudgetTotals(
 }
 
 export function nextCreditCardBudgetTotals(state: FinanceState) {
-  const manuallyAddedThisMonth = state.expenses.filter((expense) =>
-    expense.date.startsWith(state.selectedMonth),
-  );
-  const automaticNextMonthInstallments = monthlyExpenses(
-    state,
-    addMonths(state.selectedMonth, 1),
-  ).filter((expense) => expense.sourceDebtId);
-
-  return creditCardBudgetTotals([
-    ...manuallyAddedThisMonth,
-    ...automaticNextMonthInstallments,
-  ]);
+  return monthlyCreditCardBudgetTotals(state, state.selectedMonth);
 }
 
 function creditCardBudgetTotals(expenses: Expense[]) {
@@ -207,13 +235,34 @@ export function expenseCategories(state: FinanceState) {
   ].sort();
 }
 
+export function filterExpenses(
+  expenses: Expense[],
+  categoryFilter: string,
+  cardFilter: ExpenseCardFilter,
+) {
+  return expenses.filter((expense) => {
+    const matchesCategory =
+      !categoryFilter || expense.category === categoryFilter;
+    const matchesCard =
+      !cardFilter ||
+      (cardFilter === "cardless"
+        ? !expense.creditCard
+        : expense.creditCard === cardFilter);
+
+    return matchesCategory && matchesCard;
+  });
+}
+
 export function monthlyExpenses(state: FinanceState, month: string) {
   const savedExpenses = state.expenses.filter((expense) =>
     expense.date.startsWith(month),
   );
   const generatedInstallments = state.debts
     .filter(
-      (debt) => debt.creditCard && scheduledDebtPayment(debt, month) > 0,
+      (debt) =>
+        isOwnDebt(debt) &&
+        debt.creditCard &&
+        scheduledDebtPayment(debt, month) > 0,
     )
     .map((debt): Expense => ({
       id: `installment:${debt.id}:${month}`,
@@ -227,6 +276,19 @@ export function monthlyExpenses(state: FinanceState, month: string) {
     }));
 
   return [...savedExpenses, ...generatedInstallments];
+}
+
+export function yearlyExpenses(state: FinanceState) {
+  const years = new Set([
+    state.selectedMonth.slice(0, 4),
+    ...state.expenses.map((expense) => expense.date.slice(0, 4)),
+  ]);
+
+  return [...years].flatMap((year) =>
+    ALL_MONTH_NUMBERS.flatMap((month) =>
+      monthlyExpenses(state, `${year}-${month}`),
+    ),
+  );
 }
 
 function installmentDate(month: string, dueDay: number) {

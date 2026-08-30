@@ -103,6 +103,7 @@ input:focus-visible, select:focus-visible { border-color: var(--blue); outline-o
 .content-grid { display: grid; gap: 18px; align-items: start; }
 .panel { padding: 22px; border-radius: var(--radius); }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.expense-filter-controls { display: grid; grid-template-columns: repeat(2, minmax(170px, 220px)); gap: 10px; }
 .panel-note { margin: 5px 0 0; color: var(--ink-soft); font-size: .8rem; }
 .debt-page-actions { display: flex; justify-content: flex-end; margin: 0 0 18px; }
 
@@ -153,6 +154,9 @@ input[type="date"], input[type="month"] { appearance: none; -webkit-appearance: 
 .empty-state { padding: 30px 20px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--paper-soft); color: var(--ink-soft); font-size: .86rem; text-align: center; }
 
 .table-wrap, .payment-table-wrap { max-width: 100%; overflow: auto; scrollbar-gutter: stable; }
+.expense-filter-total { display: flex; align-items: center; justify-content: flex-end; gap: 18px; margin-top: 14px; padding: 13px 14px; border-top: 2px solid var(--ink); background: var(--paper-soft); }
+.expense-filter-total span { color: var(--ink-soft); font-size: .78rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.expense-filter-total strong { min-width: 110px; font-family: var(--font-data); font-size: 1rem; font-variant-numeric: tabular-nums; text-align: right; }
 table { width: 100%; min-width: 700px; border-collapse: collapse; font-size: .86rem; }
 th, td { padding: 13px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: left; }
 thead th { color: var(--ink-soft); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -172,6 +176,8 @@ tbody tr:hover { background: #f8fafc; }
 .schedule-grid-table thead th:first-child { z-index: 3; }
 .schedule-grid-table tbody th:first-child { color: var(--ink); font-size: .8rem; text-transform: none; }
 .schedule-grid-table .amount-col { min-width: 100px; }
+.installment-payment { display: inline-grid; justify-items: end; gap: 2px; line-height: 1.1; }
+.installment-payment small { color: var(--ink-soft); font-family: var(--font-ui); font-size: .68rem; font-weight: 650; letter-spacing: .01em; line-height: 1.2; }
 .total-row th, .total-row td { border-top: 2px solid var(--ink); background: var(--paper-soft); color: var(--ink); font-weight: 800; }
 
 .budget-sheet { min-width: 790px; table-layout: fixed; border: 1px solid var(--line); border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; }
@@ -207,6 +213,7 @@ tbody tr:hover { background: #f8fafc; }
 .budget-sheet .paid-row th, .budget-sheet .paid-row td { background: var(--green-soft); color: #0e5b47; font-weight: 800; }
 
 .yearly-summary-table th:first-child { position: sticky; left: 0; z-index: 2; background: var(--paper); }
+.yearly-summary-table:has(thead th:nth-child(2):last-child) { min-width: 0; table-layout: fixed; }
 .toast-region { position: fixed; z-index: 300; right: 24px; bottom: 24px; display: grid; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
 .toast { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border: 1px solid #b8d7ca; border-radius: 12px; background: #f4fbf7; color: #125b48; box-shadow: 0 16px 40px rgba(18,35,50,.16); font-size: .84rem; font-weight: 700; animation: toast-in .2s ease both; }
 .toast span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: #fff; }
@@ -256,6 +263,9 @@ tbody tr:hover { background: #f8fafc; }
   .metric small { font-size: .64rem; }
   .panel { padding: 17px; }
   .expenses-summary-grid { display: none; }
+  #expensesView .split-heading { align-items: stretch; flex-direction: column; }
+  #expensesView .expense-filter-controls { grid-template-columns: 1fr; width: 100%; }
+  #expensesView .expense-filter-total { justify-content: space-between; gap: 12px; margin-top: 12px; border-radius: 10px; }
   .debt-page-actions { margin: 0 0 14px; }
   .inline-action { width: 100%; }
   .form-grid { grid-template-columns: 1fr; }

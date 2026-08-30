@@ -90,6 +90,7 @@ export function DebtModal({ debt, recurring, selectedMonth, onClose, onRecurring
       <form key={debt?.id || "new-debt"} onSubmit={validation.handleSubmit} onInput={validation.handleInput} noValidate>
         <div className="form-grid">
           <label>Taksit adı<input name="name" placeholder="Örn. Bilgisayar" defaultValue={debt?.name || ""} required /></label>
+          <label>Kişi<input name="person" placeholder="Örn. Anne" defaultValue={debt?.person || "Ben"} required /></label>
           <label>Aylık tutar (₺)<input name="monthlyAmount" type="number" inputMode="decimal" min="0.01" step="0.01" defaultValue={debt ? monthlyPayment(debt) : ""} required /></label>
           <label hidden={recurring}>Taksit sayısı<input name="totalInstallments" type="number" inputMode="numeric" min="1" step="1" defaultValue={debt?.totalInstallments || 6} required={!recurring} /></label>
           <label>Başlangıç ayı<input name="startMonth" type="month" defaultValue={debt?.startMonth || selectedMonth} required /></label>

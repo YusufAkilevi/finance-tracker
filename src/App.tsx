@@ -15,6 +15,7 @@ import { buildMonthRange, currentMonth, longMonth } from "./lib/date";
 import { formValue } from "./lib/form";
 import {
   expenseCategories,
+  filterExpenses,
   fixedBudgetPayments,
   isFixedHousingOrInstallmentExpense,
   isRecurringDebt,
@@ -22,9 +23,11 @@ import {
   monthlyExpenses,
   normalizeCategory,
   normalizeCreditCard,
+  normalizeDebtPerson,
   remainingDebt,
   sum,
   sumBudgetPaymentAmounts,
+  yearlyExpenses,
 } from "./lib/finance";
 import {
   addBudgetState,
@@ -41,12 +44,19 @@ import {
 import { defaultState } from "./lib/state";
 import { useBudgetDrag } from "./hooks/useBudgetDrag";
 import { useRemoteSync } from "./hooks/useRemoteSync";
-import type { AmountKey, FinanceState, View } from "./types";
+import type {
+  AmountKey,
+  ExpenseCardFilter,
+  FinanceState,
+  View,
+} from "./types";
 
 function App() {
   const [state, setState] = useState<FinanceState>(() => defaultState());
   const [view, setView] = useState<View>("dashboard");
   const [expenseSearch, setExpenseSearch] = useState("");
+  const [expenseCardFilter, setExpenseCardFilter] =
+    useState<ExpenseCardFilter>("");
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [debtModalOpen, setDebtModalOpen] = useState(false);
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
@@ -77,6 +87,7 @@ function App() {
     () => monthlyExpenses(state, state.selectedMonth),
     [state],
   );
+  const yearExpenses = useMemo(() => yearlyExpenses(state), [state]);
   const budgets = useMemo(() => fixedBudgetPayments(state), [state]);
   const debtDue = useMemo(
     () => monthlyDebtDue(state, state.selectedMonth),
@@ -94,11 +105,11 @@ function App() {
   const selectedExpenseFilter = categories.includes(expenseSearch)
     ? expenseSearch
     : "";
-  const filteredExpenses = expenses
-    .filter(
-      (expense) =>
-        !selectedExpenseFilter || expense.category === selectedExpenseFilter,
-    )
+  const filteredExpenses = filterExpenses(
+    expenses,
+    selectedExpenseFilter,
+    expenseCardFilter,
+  )
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const totalSpent = sum(expenses, "amount");
@@ -260,6 +271,7 @@ function App() {
       creditCard: normalizeCreditCard(formValue(form, "creditCard")),
       dueDay: Number(formValue(form, "dueDay")),
       name: formValue(form, "name").trim(),
+      person: normalizeDebtPerson(formValue(form, "person")),
       monthlyAmount: Number(formValue(form, "monthlyAmount")),
       totalInstallments,
       startMonth: formValue(form, "startMonth"),
@@ -424,7 +436,7 @@ function App() {
 
           <DashboardView
             activeView={view}
-            allExpenses={state.expenses}
+            allExpenses={yearExpenses}
             debtLeft={debtLeft}
             expenses={expenses}
             flexibleExpenses={flexibleExpenses}
@@ -440,10 +452,12 @@ function App() {
             categories={categories}
             expenses={expenses}
             filteredExpenses={filteredExpenses}
+            selectedCreditCardFilter={expenseCardFilter}
             selectedExpenseFilter={selectedExpenseFilter}
             onAddExpense={openExpenseModal}
             onDeleteExpense={deleteExpense}
             onEditExpense={openExpenseEditModal}
+            onCreditCardFilterChange={setExpenseCardFilter}
             onFilterChange={setExpenseSearch}
           />
 
@@ -451,7 +465,6 @@ function App() {
             activeView={view}
             activeDebts={activeDebts}
             scheduleMonths={scheduleMonths}
-            state={state}
             onAddDebt={openDebtModal}
             onDeleteDebt={deleteDebt}
             onEditDebt={openDebtEditModal}

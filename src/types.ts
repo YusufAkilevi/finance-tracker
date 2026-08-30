@@ -1,5 +1,6 @@
 export type View = "dashboard" | "expenses" | "debts" | "budgets";
 export type CreditCard = "Ziraat" | "Axess" | "Garanti";
+export type ExpenseCardFilter = CreditCard | "" | "cardless";
 export type AmountKey = "currentAmount" | "nextAmount";
 
 export type Expense = {
@@ -16,6 +17,7 @@ export type Expense = {
 export type Debt = {
   id: string;
   name: string;
+  person: string;
   monthlyAmount: number;
   total: number;
   totalInstallments: number;
@@ -28,6 +30,12 @@ export type Debt = {
 
 export type DebtDue = Debt & {
   dueAmount: number;
+};
+
+export type PersonDebtSchedule = {
+  person: string;
+  debts: Debt[];
+  monthTotals: number[];
 };
 
 export type BudgetPayment = {
