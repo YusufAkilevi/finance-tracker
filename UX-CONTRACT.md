@@ -11,6 +11,7 @@
 ## Create and edit
 
 - Add and edit open the same shared modal pattern.
+- Credit card selection is optional for installments. Card-backed installments generate monthly expenses automatically; installments without a card remain in the installment schedule only.
 - Save closes the modal, preserves the active view, updates local state immediately, queues remote sync, and announces completion.
 - Cancel, Escape, or backdrop close abandons unsubmitted form changes.
 - Forms own validation with `noValidate`; browser-native date/month/select popups are accepted for this private tool.

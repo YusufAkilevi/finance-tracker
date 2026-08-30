@@ -94,7 +94,7 @@ export function DebtModal({ debt, recurring, selectedMonth, onClose, onRecurring
           <label hidden={recurring}>Taksit sayısı<input name="totalInstallments" type="number" inputMode="numeric" min="1" step="1" defaultValue={debt?.totalInstallments || 6} required={!recurring} /></label>
           <label>Başlangıç ayı<input name="startMonth" type="month" defaultValue={debt?.startMonth || selectedMonth} required /></label>
           <label>Ödeme günü<input name="dueDay" type="number" inputMode="numeric" min="1" max="31" step="1" defaultValue={debt?.dueDay || 1} required /></label>
-          <label>Kredi kartı<select name="creditCard" defaultValue={normalizeCreditCard(debt?.creditCard)} required><option value="" disabled>Kart seçin</option><option value="Ziraat">Ziraat</option><option value="Axess">Axess</option><option value="Garanti">Garanti</option></select></label>
+          <label>Kredi kartı<select name="creditCard" defaultValue={normalizeCreditCard(debt?.creditCard)}><option value="">Kart kullanılmadı</option><option value="Ziraat">Ziraat</option><option value="Axess">Axess</option><option value="Garanti">Garanti</option></select></label>
           <label className="checkbox-field wide"><input name="recurring" type="checkbox" checked={recurring} onChange={(event) => onRecurringChange(event.target.checked)} /><span>Sürekli ödeme<small>Abonelik gibi her ay tekrarlansın</small></span></label>
         </div>
         <FormError id="debtFormError" message={validation.error} />
