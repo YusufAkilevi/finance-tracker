@@ -76,6 +76,24 @@ function NavIcon({ icon }: { icon: View }) {
     );
   }
 
+  if (icon === "investments") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="tab-icon"
+        aria-hidden="true"
+      >
+        <path d="M3 3v18h18"></path>
+        <path d="m7 16 4-5 3 3 5-7"></path>
+      </svg>
+    );
+  }
+
   return (
     <svg
       viewBox="0 0 24 24"

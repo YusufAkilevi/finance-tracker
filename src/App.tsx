@@ -7,10 +7,17 @@ import {
   DebtModal,
   ExpenseModal,
 } from "./components/Modals";
+import {
+  InvestmentFlowModal,
+  InvestmentHistoryModal,
+  InvestmentMonthlyRecordModal,
+  InvestmentPortfolioManagerModal,
+} from "./components/InvestmentModals";
 import { BudgetsView } from "./components/views/BudgetsView";
 import { DashboardView } from "./components/views/DashboardView";
 import { DebtsView } from "./components/views/DebtsView";
 import { ExpensesView } from "./components/views/ExpensesView";
+import { InvestmentsView } from "./components/views/InvestmentsView";
 import { buildMonthRange, currentMonth, longMonth } from "./lib/date";
 import { formValue } from "./lib/form";
 import {
@@ -31,6 +38,8 @@ import {
 } from "./lib/finance";
 import {
   addBudgetState,
+  deleteInvestmentCashFlowState,
+  deleteInvestmentSnapshotState,
   deleteBudgetState,
   deleteDebtState,
   deleteExpenseState,
@@ -38,6 +47,10 @@ import {
   rolloverBudgetPaymentsState,
   saveDebtState,
   saveExpenseState,
+  saveInvestmentFlowState,
+  saveInvestmentMonthlyRecordState,
+  saveInvestmentPortfolioState,
+  setInvestmentPortfolioArchivedState,
   toggleBudgetPaidState,
   updateBudgetAmountState,
 } from "./lib/mutations";
@@ -48,6 +61,11 @@ import type {
   AmountKey,
   ExpenseCardFilter,
   FinanceState,
+  InvestmentCashFlow,
+  InvestmentCurrency,
+  InvestmentPortfolio,
+  InvestmentSnapshot,
+  InvestmentRateSource,
   View,
 } from "./types";
 
@@ -60,6 +78,14 @@ function App() {
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [debtModalOpen, setDebtModalOpen] = useState(false);
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
+  const [investmentRecordModalOpen, setInvestmentRecordModalOpen] = useState(false);
+  const [investmentManagerOpen, setInvestmentManagerOpen] = useState(false);
+  const [investmentCurrency, setInvestmentCurrency] = useState<InvestmentCurrency>("USD");
+  const [investmentHistoryPortfolioId, setInvestmentHistoryPortfolioId] = useState<string | null>(null);
+  const [editingInvestmentSnapshotId, setEditingInvestmentSnapshotId] = useState<string | null>(null);
+  const [investmentFlowModalOpen, setInvestmentFlowModalOpen] = useState(false);
+  const [editingInvestmentFlowId, setEditingInvestmentFlowId] = useState<string | null>(null);
+  const [investmentFlowPortfolioId, setInvestmentFlowPortfolioId] = useState<string | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
   const [debtRecurring, setDebtRecurring] = useState(false);
@@ -141,6 +167,7 @@ function App() {
 
   useEffect(() => {
     document.body.dataset.view = view;
+    document.title = `${VIEW_TITLES[view]} | Finans Takip`;
   }, [view]);
 
   useEffect(() => {
@@ -155,6 +182,10 @@ function App() {
       closeExpenseModal();
       closeDebtModal();
       closeBudgetModal();
+      closeInvestmentRecordModal();
+      setInvestmentManagerOpen(false);
+      setInvestmentHistoryPortfolioId(null);
+      closeInvestmentFlowModal();
     };
 
     document.addEventListener("keydown", onKeyDown);
@@ -215,6 +246,46 @@ function App() {
 
   function closeBudgetModal() {
     setBudgetModalOpen(false);
+  }
+
+  function openInvestmentRecordModal() {
+    setEditingInvestmentSnapshotId(null);
+    setInvestmentRecordModalOpen(true);
+  }
+
+  function editInvestmentRecord(snapshot: InvestmentSnapshot) {
+    setInvestmentHistoryPortfolioId(null);
+    setEditingInvestmentSnapshotId(snapshot.id);
+    setInvestmentRecordModalOpen(true);
+  }
+
+  function closeInvestmentRecordModal() {
+    setEditingInvestmentSnapshotId(null);
+    setInvestmentRecordModalOpen(false);
+  }
+
+  function openInvestmentHistory(portfolio: InvestmentPortfolio) {
+    setInvestmentHistoryPortfolioId(portfolio.id);
+  }
+
+  function openInvestmentFlowModal(flow: InvestmentCashFlow | null = null) {
+    const canonicalFlow = flow?.type === "transfer-in" && flow.transferGroupId
+      ? stateRef.current.investmentCashFlows.find(
+          (item) => item.transferGroupId === flow.transferGroupId && item.type === "transfer-out",
+        ) || flow
+      : flow;
+    setEditingInvestmentFlowId(canonicalFlow?.id || null);
+    setInvestmentFlowPortfolioId(
+      canonicalFlow?.portfolioId || investmentHistoryPortfolioId,
+    );
+    setInvestmentHistoryPortfolioId(null);
+    setInvestmentFlowModalOpen(true);
+  }
+
+  function closeInvestmentFlowModal() {
+    setEditingInvestmentFlowId(null);
+    setInvestmentFlowPortfolioId(null);
+    setInvestmentFlowModalOpen(false);
   }
 
   function handleMonthChange(value: string) {
@@ -355,6 +426,123 @@ function App() {
     reorderBudgetPayment(paymentId, target.id);
   }
 
+  function saveInvestmentRecord(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = {
+      portfolioId: formValue(form, "portfolioId"),
+      date: formValue(form, "date"),
+      totalValue: Number(formValue(form, "totalValue")),
+      contributed: Number(formValue(form, "contributed") || 0),
+      withdrawn: Number(formValue(form, "withdrawn") || 0),
+      usdTryRate: Number(formValue(form, "usdTryRate")),
+      rateDate: formValue(form, "rateDate"),
+      rateSource: formValue(form, "rateSource") as InvestmentRateSource,
+      note: formValue(form, "note").trim(),
+    };
+    updateState((current) =>
+      saveInvestmentMonthlyRecordState(
+        current,
+        editingInvestmentSnapshotId,
+        values,
+      ),
+    );
+    setToast(editingInvestmentSnapshotId ? "Aylık yatırım kaydı güncellendi." : "Aylık yatırım kaydı eklendi.");
+    closeInvestmentRecordModal();
+  }
+
+  function saveInvestmentPortfolio(
+    event: FormEvent<HTMLFormElement>,
+    editingId: string | null,
+  ) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    updateState((current) =>
+      saveInvestmentPortfolioState(current, editingId, {
+        name: formValue(form, "name").trim(),
+        purpose: formValue(form, "purpose").trim(),
+        currency: formValue(form, "currency") as InvestmentCurrency,
+        description: formValue(form, "description").trim(),
+      }),
+    );
+    form.reset();
+    setToast(editingId ? "Portföy güncellendi." : "Portföy oluşturuldu.");
+  }
+
+  function setInvestmentPortfolioArchived(portfolioId: string, archived: boolean) {
+    updateState((current) =>
+      setInvestmentPortfolioArchivedState(current, portfolioId, archived),
+    );
+    setToast(archived ? "Portföy arşivlendi." : "Portföy yeniden etkinleştirildi.");
+  }
+
+  function saveInvestmentFlow(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    updateState((current) =>
+      saveInvestmentFlowState(current, editingInvestmentFlowId, {
+        type: formValue(form, "type") as "contribution" | "withdrawal" | "transfer",
+        portfolioId: formValue(form, "portfolioId"),
+        destinationPortfolioId: formValue(form, "destinationPortfolioId") || undefined,
+        date: formValue(form, "date"),
+        amount: Number(formValue(form, "amount")),
+        destinationAmount: Number(formValue(form, "destinationAmount") || 0),
+        usdTryRate: Number(formValue(form, "usdTryRate")),
+        rateDate: formValue(form, "rateDate"),
+        rateSource: formValue(form, "rateSource") as InvestmentRateSource,
+        note: formValue(form, "note").trim(),
+      }),
+    );
+    setToast(editingInvestmentFlowId ? "Yatırım hareketi güncellendi." : "Yatırım hareketi eklendi.");
+    closeInvestmentFlowModal();
+  }
+
+  function deleteInvestmentSnapshot(snapshot: InvestmentSnapshot) {
+    setConfirmation({
+      title: "Aylık yatırım kaydını sil?",
+      description: `${snapshot.date} tarihli değerleme ve bu kayda bağlı para hareketleri kalıcı olarak silinecek.`,
+      confirmLabel: "Kaydı sil",
+      onConfirm: () => {
+        updateState((current) => deleteInvestmentSnapshotState(current, snapshot.id));
+        setConfirmation(null);
+        setToast("Aylık yatırım kaydı silindi.");
+      },
+    });
+  }
+
+  function deleteInvestmentFlow(flow: InvestmentCashFlow) {
+    setConfirmation({
+      title: "Yatırım hareketini sil?",
+      description: flow.transferGroupId
+        ? "Transferin her iki portföydeki karşılığı kalıcı olarak silinecek."
+        : `${flow.date} tarihli hareket kalıcı olarak silinecek.`,
+      confirmLabel: "Hareketi sil",
+      onConfirm: () => {
+        updateState((current) => deleteInvestmentCashFlowState(current, flow.id));
+        setConfirmation(null);
+        setToast("Yatırım hareketi silindi.");
+      },
+    });
+  }
+
+  const historyPortfolio = investmentHistoryPortfolioId
+    ? state.investmentPortfolios.find((portfolio) => portfolio.id === investmentHistoryPortfolioId) || null
+    : null;
+  const editingInvestmentSnapshot = editingInvestmentSnapshotId
+    ? state.investmentSnapshots.find((snapshot) => snapshot.id === editingInvestmentSnapshotId) || null
+    : null;
+  const editingInvestmentFlow = editingInvestmentFlowId
+    ? state.investmentCashFlows.find((flow) => flow.id === editingInvestmentFlowId) || null
+    : null;
+  const pairedInvestmentFlow = editingInvestmentFlow?.transferGroupId
+    ? state.investmentCashFlows.find(
+        (flow) => flow.transferGroupId === editingInvestmentFlow.transferGroupId && flow.type === "transfer-in",
+      ) || null
+    : null;
+  const flowPortfolio = editingInvestmentFlow
+    ? state.investmentPortfolios.find((portfolio) => portfolio.id === editingInvestmentFlow.portfolioId) || null
+    : state.investmentPortfolios.find((portfolio) => portfolio.id === investmentFlowPortfolioId) || null;
+
   return (
     <>
       <div className="app-shell">
@@ -393,6 +581,12 @@ function App() {
               label="Ödeme Planı"
               active={view === "budgets"}
               onClick={() => setView("budgets")}
+            />
+            <NavButton
+              icon="investments"
+              label="Yatırımlar"
+              active={view === "investments"}
+              onClick={() => setView("investments")}
             />
           </nav>
 
@@ -484,6 +678,16 @@ function App() {
             onRollover={rolloverBudgetPayments}
             onTogglePaid={toggleBudgetPaid}
           />
+
+          <InvestmentsView
+            activeView={view}
+            currency={investmentCurrency}
+            state={state}
+            onAddRecord={openInvestmentRecordModal}
+            onCurrencyChange={setInvestmentCurrency}
+            onManage={() => setInvestmentManagerOpen(true)}
+            onOpenHistory={openInvestmentHistory}
+          />
         </main>
       </div>
 
@@ -509,6 +713,57 @@ function App() {
 
       {budgetModalOpen ? (
         <BudgetModal onClose={closeBudgetModal} onSubmit={addBudget} />
+      ) : null}
+
+      {investmentRecordModalOpen ? (
+        <InvestmentMonthlyRecordModal
+          portfolios={state.investmentPortfolios.filter(
+            (portfolio) => !portfolio.archivedAt || portfolio.id === editingInvestmentSnapshot?.portfolioId,
+          )}
+          selectedMonth={state.selectedMonth}
+          snapshot={editingInvestmentSnapshot}
+          snapshots={state.investmentSnapshots}
+          cashFlows={state.investmentCashFlows}
+          onClose={closeInvestmentRecordModal}
+          onSubmit={saveInvestmentRecord}
+        />
+      ) : null}
+
+      {investmentManagerOpen ? (
+        <InvestmentPortfolioManagerModal
+          portfolios={state.investmentPortfolios}
+          snapshots={state.investmentSnapshots}
+          cashFlows={state.investmentCashFlows}
+          onArchive={setInvestmentPortfolioArchived}
+          onClose={() => setInvestmentManagerOpen(false)}
+          onSave={saveInvestmentPortfolio}
+        />
+      ) : null}
+
+      {historyPortfolio ? (
+        <InvestmentHistoryModal
+          portfolio={historyPortfolio}
+          portfolios={state.investmentPortfolios}
+          snapshots={state.investmentSnapshots.filter((snapshot) => snapshot.portfolioId === historyPortfolio.id)}
+          cashFlows={state.investmentCashFlows.filter((flow) => flow.portfolioId === historyPortfolio.id)}
+          onAddFlow={() => openInvestmentFlowModal()}
+          onClose={() => setInvestmentHistoryPortfolioId(null)}
+          onDeleteFlow={deleteInvestmentFlow}
+          onDeleteSnapshot={deleteInvestmentSnapshot}
+          onEditFlow={openInvestmentFlowModal}
+          onEditSnapshot={editInvestmentRecord}
+        />
+      ) : null}
+
+      {investmentFlowModalOpen && flowPortfolio ? (
+        <InvestmentFlowModal
+          portfolio={flowPortfolio}
+          portfolios={state.investmentPortfolios}
+          flow={editingInvestmentFlow}
+          pairedFlow={pairedInvestmentFlow}
+          onClose={closeInvestmentFlowModal}
+          onSubmit={saveInvestmentFlow}
+        />
       ) : null}
 
       {confirmation ? (

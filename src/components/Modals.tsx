@@ -12,7 +12,7 @@ type ModalFrameProps = {
   describedBy?: string;
 };
 
-function ModalFrame({ title, titleId, onClose, children, tone = "default", describedBy }: ModalFrameProps) {
+export function ModalFrame({ title, titleId, onClose, children, tone = "default", describedBy }: ModalFrameProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
@@ -135,15 +135,15 @@ export function ConfirmDialog({ title, description, confirmLabel, onCancel, onCo
   );
 }
 
-function ModalActions({ onClose, submitLabel }: { onClose: () => void; submitLabel: string }) {
-  return <div className="modal-actions"><button className="button button-ghost" type="button" onClick={onClose}>Vazgeç</button><button className="button button-primary" type="submit">{submitLabel}</button></div>;
+export function ModalActions({ onClose, submitLabel, disabled = false }: { onClose: () => void; submitLabel: string; disabled?: boolean }) {
+  return <div className="modal-actions"><button className="button button-ghost" type="button" onClick={onClose}>Vazgeç</button><button className="button button-primary" type="submit" disabled={disabled}>{submitLabel}</button></div>;
 }
 
-function FormError({ id, message }: { id: string; message: string }) {
+export function FormError({ id, message }: { id: string; message: string }) {
   return message ? <p className="form-error" id={id} role="alert">{message}</p> : null;
 }
 
-function useOwnedFormValidation(onValidSubmit: (event: FormEvent<HTMLFormElement>) => void, errorId: string) {
+export function useOwnedFormValidation(onValidSubmit: (event: FormEvent<HTMLFormElement>) => void, errorId: string) {
   const [error, setError] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

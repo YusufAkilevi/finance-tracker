@@ -1,5 +1,12 @@
 import { BUDGET_MONTH } from "../constants";
-import type { AmountKey, BudgetPayment, CreditCard, FinanceState } from "../types";
+import type {
+  AmountKey,
+  BudgetPayment,
+  CreditCard,
+  FinanceState,
+  InvestmentCurrency,
+  InvestmentRateSource,
+} from "../types";
 import {
   budgetCurrentAmountDeduction,
   budgetPaymentAmount,
@@ -228,4 +235,282 @@ export function reorderBudgetPaymentState(
       return payments[nextPaymentIndex++] as BudgetPayment;
     }),
   };
+}
+
+export type InvestmentPortfolioValues = {
+  name: string;
+  purpose: string;
+  currency: InvestmentCurrency;
+  description: string;
+};
+
+export function saveInvestmentPortfolioState(
+  current: FinanceState,
+  editingPortfolioId: string | null,
+  values: InvestmentPortfolioValues,
+): FinanceState {
+  if (editingPortfolioId) {
+    const hasHistory = current.investmentSnapshots.some(
+      (snapshot) => snapshot.portfolioId === editingPortfolioId,
+    ) || current.investmentCashFlows.some(
+      (flow) => flow.portfolioId === editingPortfolioId,
+    );
+    return {
+      ...current,
+      investmentPortfolios: current.investmentPortfolios.map((portfolio) =>
+        portfolio.id === editingPortfolioId
+          ? { ...portfolio, ...values, currency: hasHistory ? portfolio.currency : values.currency }
+          : portfolio,
+      ),
+    };
+  }
+  return {
+    ...current,
+    investmentPortfolios: [
+      ...current.investmentPortfolios,
+      {
+        id: investmentId(),
+        ...values,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  };
+}
+
+export function setInvestmentPortfolioArchivedState(
+  current: FinanceState,
+  portfolioId: string,
+  archived: boolean,
+): FinanceState {
+  return {
+    ...current,
+    investmentPortfolios: current.investmentPortfolios.map((portfolio) =>
+      portfolio.id === portfolioId
+        ? {
+            ...portfolio,
+            archivedAt: archived ? new Date().toISOString() : undefined,
+          }
+        : portfolio,
+    ),
+  };
+}
+
+export type InvestmentMonthlyRecordValues = {
+  portfolioId: string;
+  date: string;
+  totalValue: number;
+  contributed: number;
+  withdrawn: number;
+  usdTryRate: number;
+  rateDate: string;
+  rateSource: InvestmentRateSource;
+  note: string;
+};
+
+export function saveInvestmentMonthlyRecordState(
+  current: FinanceState,
+  editingSnapshotId: string | null,
+  values: InvestmentMonthlyRecordValues,
+): FinanceState {
+  const portfolio = current.investmentPortfolios.find(
+    (item) => item.id === values.portfolioId,
+  );
+  if (!portfolio) return current;
+  const sameMonthSnapshots = current.investmentSnapshots.filter(
+    (item) =>
+      item.portfolioId === values.portfolioId &&
+      item.date.slice(0, 7) === values.date.slice(0, 7),
+  );
+  const snapshotId = editingSnapshotId || sameMonthSnapshots[0]?.id || investmentId();
+  const replacedIds = new Set([
+    ...sameMonthSnapshots.map((item) => item.id),
+    ...(editingSnapshotId ? [editingSnapshotId] : []),
+  ]);
+
+  const snapshot = {
+    id: snapshotId,
+    portfolioId: values.portfolioId,
+    date: values.date,
+    totalValue: values.totalValue,
+    usdTryRate: values.usdTryRate,
+    rateDate: values.rateDate,
+    rateSource: values.rateSource,
+    note: values.note || undefined,
+  };
+  const investmentSnapshots = [
+    ...current.investmentSnapshots.filter((item) => !replacedIds.has(item.id)),
+    snapshot,
+  ];
+  const retainedFlows = current.investmentCashFlows.filter(
+    (flow) => !flow.snapshotId || !replacedIds.has(flow.snapshotId),
+  );
+  const linkedFlows = [
+    values.contributed > 0
+      ? {
+          id: investmentId(),
+          portfolioId: portfolio.id,
+          date: values.date,
+          type: "contribution" as const,
+          amount: values.contributed,
+          currency: portfolio.currency,
+          usdTryRate: values.usdTryRate,
+          rateDate: values.rateDate,
+          rateSource: values.rateSource,
+          snapshotId,
+          note: values.note || undefined,
+        }
+      : null,
+    values.withdrawn > 0
+      ? {
+          id: investmentId(),
+          portfolioId: portfolio.id,
+          date: values.date,
+          type: "withdrawal" as const,
+          amount: values.withdrawn,
+          currency: portfolio.currency,
+          usdTryRate: values.usdTryRate,
+          rateDate: values.rateDate,
+          rateSource: values.rateSource,
+          snapshotId,
+          note: values.note || undefined,
+        }
+      : null,
+  ].filter((flow) => flow !== null);
+
+  return {
+    ...current,
+    investmentSnapshots,
+    investmentCashFlows: [...retainedFlows, ...linkedFlows],
+  };
+}
+
+export function deleteInvestmentSnapshotState(
+  current: FinanceState,
+  snapshotId: string,
+): FinanceState {
+  return {
+    ...current,
+    investmentSnapshots: current.investmentSnapshots.filter(
+      (snapshot) => snapshot.id !== snapshotId,
+    ),
+    investmentCashFlows: current.investmentCashFlows.filter(
+      (flow) => flow.snapshotId !== snapshotId,
+    ),
+  };
+}
+
+export type InvestmentFlowValues = {
+  type: "contribution" | "withdrawal" | "transfer";
+  portfolioId: string;
+  destinationPortfolioId?: string;
+  date: string;
+  amount: number;
+  destinationAmount?: number;
+  usdTryRate: number;
+  rateDate: string;
+  rateSource: InvestmentRateSource;
+  note: string;
+};
+
+export function saveInvestmentFlowState(
+  current: FinanceState,
+  editingFlowId: string | null,
+  values: InvestmentFlowValues,
+): FinanceState {
+  const source = current.investmentPortfolios.find(
+    (portfolio) => portfolio.id === values.portfolioId,
+  );
+  if (!source) return current;
+  const editingFlow = editingFlowId
+    ? current.investmentCashFlows.find((flow) => flow.id === editingFlowId)
+    : undefined;
+  const retainedFlows = current.investmentCashFlows.filter((flow) => {
+    if (editingFlow?.transferGroupId) {
+      return flow.transferGroupId !== editingFlow.transferGroupId;
+    }
+    return flow.id !== editingFlowId;
+  });
+
+  if (values.type !== "transfer") {
+    return {
+      ...current,
+      investmentCashFlows: [
+        ...retainedFlows,
+        {
+          id: editingFlowId || investmentId(),
+          portfolioId: source.id,
+          date: values.date,
+          type: values.type,
+          amount: values.amount,
+          currency: source.currency,
+          usdTryRate: values.usdTryRate,
+          rateDate: values.rateDate,
+          rateSource: values.rateSource,
+          note: values.note || undefined,
+        },
+      ],
+    };
+  }
+
+  const destination = current.investmentPortfolios.find(
+    (portfolio) => portfolio.id === values.destinationPortfolioId,
+  );
+  if (!destination || destination.id === source.id) return current;
+  const transferGroupId = editingFlow?.transferGroupId || investmentId();
+  return {
+    ...current,
+    investmentCashFlows: [
+      ...retainedFlows,
+      {
+        id: investmentId(),
+        portfolioId: source.id,
+        date: values.date,
+        type: "transfer-out",
+        amount: values.amount,
+        currency: source.currency,
+        usdTryRate: values.usdTryRate,
+        rateDate: values.rateDate,
+        rateSource: values.rateSource,
+        transferGroupId,
+        counterpartyPortfolioId: destination.id,
+        note: values.note || undefined,
+      },
+      {
+        id: investmentId(),
+        portfolioId: destination.id,
+        date: values.date,
+        type: "transfer-in",
+        amount: Number(values.destinationAmount || values.amount),
+        currency: destination.currency,
+        usdTryRate: values.usdTryRate,
+        rateDate: values.rateDate,
+        rateSource: values.rateSource,
+        transferGroupId,
+        counterpartyPortfolioId: source.id,
+        note: values.note || undefined,
+      },
+    ],
+  };
+}
+
+export function deleteInvestmentCashFlowState(
+  current: FinanceState,
+  flowId: string,
+): FinanceState {
+  const flow = current.investmentCashFlows.find((item) => item.id === flowId);
+  return {
+    ...current,
+    investmentCashFlows: current.investmentCashFlows.filter((item) =>
+      flow?.transferGroupId
+        ? item.transferGroupId !== flow.transferGroupId
+        : item.id !== flowId,
+    ),
+  };
+}
+
+function investmentId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

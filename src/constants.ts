@@ -22,6 +22,7 @@ export const VIEW_TITLES: Record<View, string> = {
   expenses: "Harcamalar",
   debts: "Taksitler",
   budgets: "Ödeme Planı",
+  investments: "Yatırımlar",
 };
 
 export const ALL_MONTH_NUMBERS = [

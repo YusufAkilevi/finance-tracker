@@ -48,3 +48,9 @@ The current month appears as a small two-part folio card in the header. It ancho
 ## Runtime ownership
 
 `styles.css :root` is the canonical runtime token implementation. Shared React components own navigation, modal, confirmation, table, feedback, and empty-state behavior. Durable token changes must update this file and this document together.
+
+## Investment data visualization
+
+The investments view extends the monthly ledger metaphor rather than introducing a trading-terminal aesthetic. Portfolio value uses action blue, invested capital uses a neutral dashed rule, and gains or losses use the existing semantic green and coral tokens with text labels. Charts remain quiet, directly labeled, and readable without hover; the selected month and the completeness of all portfolio snapshots are always visible in prose.
+
+Portfolio distribution is the single expressive visual in this view. It uses a restrained, stable sequence derived from the existing blue, ledger-neutral, green, and amber families. Currency values retain the canonical data typeface and tabular alignment. No live-price tickers, candlesticks, market gradients, or decorative finance imagery are introduced.

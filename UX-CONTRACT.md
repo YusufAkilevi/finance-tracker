@@ -2,10 +2,10 @@
 
 ## Navigation and state
 
-- The four primary views are Özet, Harcamalar, Taksitler, and Ödeme Planı.
+- The five primary views are Özet, Harcamalar, Taksitler, Ödeme Planı, and Yatırımlar.
 - Switching views does not discard finance data or the selected month.
 - The month control is global where the selected month affects the view; the current implementation keeps it in the persistent shell.
-- On mobile, the four destinations remain available in the bottom navigation.
+- On mobile, the five destinations remain available in the bottom navigation.
 - View-level create actions remain in normal document flow below the page header; they never use negative positioning or compete with the global month folio.
 
 ## Create and edit
@@ -45,6 +45,16 @@
 - Sync status is persistently visible and translated into Turkish.
 - A sync error never removes local data; the status exposes retry through “Şimdi eşitle”.
 - Remote state wins on first load or when its `updatedAt` is newer; otherwise local state is pushed.
+
+## Investments
+
+- Investment tracking is independent from expenses. Expense categories never create or modify investment cash flows automatically.
+- The default portfolios are ABD ETF (USD), BIST, TEFAS, BES 1, and BES 2 (TRY). Users may create, edit, archive, and restore portfolios; archived portfolios keep their history.
+- A monthly investment record stores a dated total valuation plus optional contributed and withdrawn amounts. Additional dated cash movements and paired portfolio transfers remain available from portfolio history.
+- USD/TRY is fetched for the chosen record date and stored on every valuation and cash flow. A saved historical rate never changes later. When the rate service fails, the form preserves entered data and requires a positive manual rate.
+- Portfolio XIRR includes that portfolio's transfers. Combined XIRR excludes internal transfers and uses only external contributions and withdrawals.
+- Combined return is unavailable until every active portfolio has a valuation in the selected month. The interface exposes the completed/total portfolio count and never presents a partial return as complete.
+- The investments table becomes compact ledger rows on phones. Values, return, last-record state, and the history action remain visible without horizontal scrolling.
 
 ## Accessibility
 

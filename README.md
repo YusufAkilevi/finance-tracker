@@ -26,34 +26,11 @@ Build the production bundle with:
 npm run build
 ```
 
-## Optional Firebase sync
+## Firebase sync and privacy
 
-The app can sync the same JSON state to Firebase Realtime Database without adding a backend.
+Firebase Realtime Database sync is configured in `src/constants.ts`. The current client uses unauthenticated REST requests. If the database rules allow public read or write access, anyone who obtains the database URL and path can read or overwrite the finance data; the URL is included in the browser bundle. A private link does not provide access control. Add authentication and restrictive database rules before hosting real financial data publicly.
 
-1. Create a Firebase project.
-2. Create a Realtime Database.
-3. Set simple public rules if this is only for your private link:
-
-```json
-{
-  "rules": {
-    ".read": true,
-    ".write": true
-  }
-}
-```
-
-4. In `src/App.tsx`, update `FIREBASE_SYNC`:
-
-```ts
-const FIREBASE_SYNC = {
-  enabled: true,
-  databaseUrl: "https://YOUR-PROJECT-default-rtdb.firebaseio.com",
-  path: "finance-tracker-state-v1"
-};
-```
-
-The app fetches the Firebase JSON on load, saves changes back to Firebase, and checks for remote updates every 60 seconds while open.
+The app fetches the Firebase JSON on load, saves changes back to Firebase, and checks for remote updates every 60 seconds while open. To use the app without remote sync, set `FIREBASE_SYNC.enabled` to `false` in `src/constants.ts`.
 
 ## Features
 
@@ -64,3 +41,6 @@ The app fetches the Firebase JSON on load, saves changes back to Firebase, and c
 - Monthly payment planning for this month and next month, including paid and remaining totals.
 - TRY currency formatting with browser local storage.
 - Data is synced through Firebase Realtime Database when sync is enabled.
+- Purpose-based investment portfolios with monthly valuations, contributions, withdrawals, and portfolio transfers.
+- TRY and USD portfolio reporting with stored historical USD/TRY reference rates and money-weighted annualized return (XIRR).
+- Combined investment wealth, allocation, capital-versus-value history, and per-portfolio performance without live asset-price tracking.

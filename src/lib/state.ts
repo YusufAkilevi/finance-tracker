@@ -1,5 +1,5 @@
 import { BUDGET_MONTH } from "../constants";
-import type { FinanceState } from "../types";
+import type { FinanceState, InvestmentPortfolio } from "../types";
 import { currentMonth, subtractMonths } from "./date";
 import {
   createDebt,
@@ -18,6 +18,9 @@ export function defaultState(withDemoData = false): FinanceState {
     expenses: demo.expenses,
     debts: demo.debts,
     budgets: demo.budgets,
+    investmentPortfolios: defaultInvestmentPortfolios(),
+    investmentSnapshots: [],
+    investmentCashFlows: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -38,8 +41,63 @@ export function normalizeState(value: unknown): FinanceState {
         }))
       : [],
     budgets: Array.isArray(source.budgets) ? source.budgets : [],
+    investmentPortfolios: Array.isArray(source.investmentPortfolios)
+      ? source.investmentPortfolios
+      : defaultInvestmentPortfolios(),
+    investmentSnapshots: Array.isArray(source.investmentSnapshots)
+      ? source.investmentSnapshots
+      : [],
+    investmentCashFlows: Array.isArray(source.investmentCashFlows)
+      ? source.investmentCashFlows
+      : [],
     updatedAt: source.updatedAt || fallback.updatedAt,
   };
+}
+
+export function defaultInvestmentPortfolios(): InvestmentPortfolio[] {
+  const createdAt = new Date().toISOString();
+  return [
+    {
+      id: "investment-us-etf",
+      name: "ABD ETF",
+      purpose: "Uzun vadeli büyüme",
+      currency: "USD",
+      description: "VOO, QQQM",
+      createdAt,
+    },
+    {
+      id: "investment-bist",
+      name: "BIST",
+      purpose: "Uzun vadeli büyüme",
+      currency: "TRY",
+      description: "",
+      createdAt,
+    },
+    {
+      id: "investment-tefas",
+      name: "TEFAS",
+      purpose: "Uzun vadeli büyüme",
+      currency: "TRY",
+      description: "",
+      createdAt,
+    },
+    {
+      id: "investment-bes-1",
+      name: "BES 1",
+      purpose: "Emeklilik",
+      currency: "TRY",
+      description: "",
+      createdAt,
+    },
+    {
+      id: "investment-bes-2",
+      name: "BES 2",
+      purpose: "Emeklilik",
+      currency: "TRY",
+      description: "",
+      createdAt,
+    },
+  ];
 }
 
 export function isStateNewer(candidate: FinanceState, current: FinanceState) {
