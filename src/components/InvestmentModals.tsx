@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { fetchUsdTryRate } from "../lib/exchangeRate";
 import { monthEndISO } from "../lib/investments";
 import { currentMonth, todayISO } from "../lib/date";
@@ -52,7 +52,6 @@ export function InvestmentMonthlyRecordModal({
   const [rateStatus, setRateStatus] = useState<"idle" | "loading" | "ready" | "error">(
     snapshot ? "ready" : "idle",
   );
-  const firstEffect = useRef(true);
   const portfolio = portfolios.find((item) => item.id === portfolioId);
   const existingRecord = !snapshot && snapshots.some(
     (item) => item.portfolioId === portfolioId && item.date.startsWith(selectedMonth),
@@ -63,11 +62,9 @@ export function InvestmentMonthlyRecordModal({
   const validation = useOwnedFormValidation(onSubmit, "investmentRecordFormError");
 
   useEffect(() => {
-    if (firstEffect.current && snapshot) {
-      firstEffect.current = false;
-      return undefined;
-    }
-    firstEffect.current = false;
+    // Keep the stored rate while the record's own date is selected; only a
+    // date change should fetch a new reference rate.
+    if (snapshot && date === snapshot.date) return undefined;
     const controller = new AbortController();
     setRate("");
     setRateDate("");
@@ -332,16 +329,11 @@ export function InvestmentFlowModal({ portfolio, portfolios, flow, pairedFlow, o
   const [rateStatus, setRateStatus] = useState<"idle" | "loading" | "ready" | "error">(
     flow ? "ready" : "idle",
   );
-  const firstEffect = useRef(true);
   const destination = portfolios.find((item) => item.id === destinationId);
   const validation = useOwnedFormValidation(onSubmit, "investmentFlowFormError");
 
   useEffect(() => {
-    if (firstEffect.current && flow) {
-      firstEffect.current = false;
-      return undefined;
-    }
-    firstEffect.current = false;
+    if (flow && date === flow.date) return undefined;
     const controller = new AbortController();
     setRate("");
     setRateDate("");

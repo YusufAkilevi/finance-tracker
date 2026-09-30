@@ -19,6 +19,8 @@ import { DebtsView } from "./components/views/DebtsView";
 import { ExpensesView } from "./components/views/ExpensesView";
 import { InvestmentsView } from "./components/views/InvestmentsView";
 import { buildMonthRange, currentMonth, longMonth } from "./lib/date";
+import { investmentMoney } from "./lib/format";
+import { portfolioResidualValue } from "./lib/investments";
 import { formValue } from "./lib/form";
 import {
   expenseCategories,
@@ -470,10 +472,28 @@ function App() {
   }
 
   function setInvestmentPortfolioArchived(portfolioId: string, archived: boolean) {
-    updateState((current) =>
-      setInvestmentPortfolioArchivedState(current, portfolioId, archived),
-    );
-    setToast(archived ? "Portföy arşivlendi." : "Portföy yeniden etkinleştirildi.");
+    const apply = () => {
+      updateState((current) =>
+        setInvestmentPortfolioArchivedState(current, portfolioId, archived),
+      );
+      setToast(archived ? "Portföy arşivlendi." : "Portföy yeniden etkinleştirildi.");
+    };
+    const portfolio = stateRef.current.investmentPortfolios.find((item) => item.id === portfolioId);
+    const residual = portfolio ? portfolioResidualValue(stateRef.current, portfolioId) : 0;
+    if (!archived || !portfolio || residual <= 0) {
+      apply();
+      return;
+    }
+    setInvestmentManagerOpen(false);
+    setConfirmation({
+      title: "Portföyü arşivle?",
+      description: `${portfolio.name} son değerlemesine göre hâlâ ${investmentMoney(residual, portfolio.currency)} değer taşıyor. Çekim veya transfer kaydı eklemeden arşivlersen bu tutar birleşik kazançtan düşer.`,
+      confirmLabel: "Yine de arşivle",
+      onConfirm: () => {
+        apply();
+        setConfirmation(null);
+      },
+    });
   }
 
   function saveInvestmentFlow(event: FormEvent<HTMLFormElement>) {

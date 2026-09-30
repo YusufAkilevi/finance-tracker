@@ -24,6 +24,16 @@ export type CombinedInvestmentSummary = InvestmentMetrics & {
   totalPortfolios: number;
 };
 
+export type InvestmentDisplayMetrics = InvestmentMetrics & {
+  hasRecords: boolean;
+  isEstimated: boolean;
+  hasCurrentMonthSnapshot: boolean;
+};
+
+export type CombinedInvestmentDisplaySummary = CombinedInvestmentSummary & {
+  isEstimated: boolean;
+};
+
 export function activeInvestmentPortfolios(
   state: FinanceState,
   month = state.selectedMonth,
@@ -40,12 +50,17 @@ export function activeInvestmentPortfolios(
           .map((flow) => flow.date.slice(0, 7)),
       ].sort()[0];
       const isStarterPortfolio = STARTER_PORTFOLIO_IDS.has(portfolio.id);
-      const firstMonth = isStarterPortfolio
-        ? "0000-00"
-        : firstRecordedMonth && firstRecordedMonth < portfolio.createdAt.slice(0, 7)
-          ? firstRecordedMonth
-          : portfolio.createdAt.slice(0, 7);
-      return firstMonth <= month && (!portfolio.archivedAt || portfolio.archivedAt > cutoff);
+      // An archived portfolio that never received a record was never in use,
+      // so it must not block completeness in any month.
+      const firstMonth = portfolio.archivedAt && !firstRecordedMonth
+        ? "9999-99"
+        : isStarterPortfolio
+          ? "0000-00"
+          : firstRecordedMonth && firstRecordedMonth < portfolio.createdAt.slice(0, 7)
+            ? firstRecordedMonth
+            : portfolio.createdAt.slice(0, 7);
+      const archivedDate = portfolio.archivedAt?.slice(0, 10);
+      return firstMonth <= month && (!archivedDate || archivedDate > cutoff);
     },
   );
 }
@@ -194,6 +209,88 @@ export function combinedInvestmentSummary(
   };
 }
 
+/** Latest recorded value plus subsequent cash movements, for display only.
+ * Monthly returns and the historical chart continue to use actual valuations.
+ */
+export function portfolioInvestmentDisplayMetrics(
+  state: FinanceState,
+  portfolio: InvestmentPortfolio,
+  month: string,
+  currency: InvestmentCurrency,
+): InvestmentDisplayMetrics {
+  const monthlyMetrics = portfolioInvestmentMetrics(state, portfolio, month, currency);
+  const cutoff = monthEndISO(month);
+  const snapshot = state.investmentSnapshots
+    .filter((entry) => entry.portfolioId === portfolio.id && entry.date <= cutoff)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  const flows = state.investmentCashFlows.filter(
+    (flow) => flow.portfolioId === portfolio.id && flow.date <= cutoff,
+  );
+  // A valuation includes all movements on its date; only later days are added.
+  const laterFlows = flows.filter((flow) => !snapshot || flow.date > snapshot.date);
+  const recordedValue = snapshot
+    ? convertInvestmentAmount(snapshot.totalValue, portfolio.currency, currency, snapshot.usdTryRate)
+    : 0;
+  const value = recordedValue
+    + sumFlows(laterFlows, ["contribution", "transfer-in"], currency)
+    - sumFlows(laterFlows, ["withdrawal", "transfer-out"], currency);
+  const contributed = sumFlows(flows, ["contribution", "transfer-in"], currency);
+  const withdrawn = sumFlows(flows, ["withdrawal", "transfer-out"], currency);
+  const hasRecords = snapshot !== null || flows.length > 0;
+  const hasCurrentMonthSnapshot = monthlyMetrics.snapshot !== null;
+
+  return {
+    ...monthlyMetrics,
+    value,
+    contributed,
+    withdrawn,
+    netInvested: contributed - withdrawn,
+    gain: value + withdrawn - contributed,
+    snapshot,
+    hasRecords,
+    hasCurrentMonthSnapshot,
+    isEstimated: hasRecords && (!hasCurrentMonthSnapshot || laterFlows.length > 0),
+  };
+}
+
+export function combinedInvestmentDisplaySummary(
+  state: FinanceState,
+  month: string,
+  currency: InvestmentCurrency,
+): CombinedInvestmentDisplaySummary {
+  const monthlySummary = combinedInvestmentSummary(state, month, currency);
+  const cutoff = monthEndISO(month);
+  const portfolios = activeInvestmentPortfolios(state, month);
+  const metrics = portfolios.map((portfolio) =>
+    portfolioInvestmentDisplayMetrics(state, portfolio, month, currency),
+  );
+  const flowCutoffs = new Map(portfolios.map((portfolio) => [portfolio.id, cutoff]));
+  state.investmentPortfolios.forEach((portfolio) => {
+    const archiveDate = portfolio.archivedAt?.slice(0, 10);
+    if (archiveDate && archiveDate <= cutoff) {
+      flowCutoffs.set(portfolio.id, archiveDate);
+    }
+  });
+  const externalFlows = state.investmentCashFlows.filter((flow) => {
+    const flowCutoff = flowCutoffs.get(flow.portfolioId);
+    return flowCutoff && flow.date <= flowCutoff
+      && (flow.type === "contribution" || flow.type === "withdrawal");
+  });
+  const contributed = sumFlows(externalFlows, ["contribution"], currency);
+  const withdrawn = sumFlows(externalFlows, ["withdrawal"], currency);
+  const value = metrics.reduce((total, metric) => total + metric.value, 0);
+
+  return {
+    ...monthlySummary,
+    value,
+    contributed,
+    withdrawn,
+    netInvested: contributed - withdrawn,
+    gain: value + withdrawn - contributed,
+    isEstimated: metrics.some((metric) => metric.isEstimated),
+  };
+}
+
 export function investmentXirr(
   state: FinanceState,
   portfolio: InvestmentPortfolio,
@@ -251,11 +348,12 @@ export function xirr(cashFlows: DatedAmount[]) {
   if (
     flows.length < 2 ||
     flows[0].date === flows[flows.length - 1].date ||
-    !flows.some((flow) => flow.amount < 0) ||
-    !flows.some((flow) => flow.amount > 0)
+    !flows.some((flow) => flow.amount < 0)
   ) {
     return null;
   }
+  // Money went in and nothing ever came back: a total loss, not "no data".
+  if (!flows.some((flow) => flow.amount > 0)) return -1;
 
   const rates = [
     -0.9999, -0.99, -0.9, -0.75, -0.5, -0.25, 0, 0.1, 0.25, 0.5, 1,
@@ -350,4 +448,23 @@ function latestDate(snapshots: InvestmentSnapshot[]) {
 
 function validDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value));
+}
+
+/**
+ * Value a portfolio still appears to hold, in its own currency, based on its
+ * latest valuation plus the cash flows recorded after that valuation. Used to
+ * warn before archiving a portfolio whose value was never withdrawn.
+ */
+export function portfolioResidualValue(state: FinanceState, portfolioId: string) {
+  const lastSnapshot = state.investmentSnapshots
+    .filter((snapshot) => snapshot.portfolioId === portfolioId)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!lastSnapshot) return 0;
+  const laterFlows = state.investmentCashFlows.filter(
+    (flow) => flow.portfolioId === portfolioId && flow.date > lastSnapshot.date,
+  );
+  return laterFlows.reduce(
+    (total, flow) => total - flowSign(flow) * flow.amount,
+    lastSnapshot.totalValue,
+  );
 }

@@ -248,10 +248,11 @@ tbody tr:hover { background: #f8fafc; }
 .investment-chart-legend i { width: 20px; height: 3px; border-radius: 99px; background: var(--blue); }
 .investment-chart-legend .investment-legend-capital { height: 0; border-top: 2px dashed #7f8e99; border-radius: 0; background: transparent; }
 .investment-chart-empty { display: grid; place-items: center; min-height: 225px; padding: 28px; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--ink-soft); text-align: center; }
-.investment-donut { width: 150px; height: 150px; display: grid; place-items: center; margin: 6px auto 22px; border-radius: 50%; background: var(--investment-allocation); }
-.investment-donut::before { width: 92px; height: 92px; border-radius: 50%; background: var(--paper); content: ""; grid-area: 1 / 1; }
-.investment-donut > span { z-index: 1; display: grid; gap: 2px; grid-area: 1 / 1; font-family: var(--font-data); font-size: 1rem; font-weight: 800; text-align: center; }
-.investment-donut small { color: var(--ink-soft); font-family: var(--font-ui); font-size: .66rem; font-weight: 700; }
+.investment-donut { display: block; width: min(100%, 280px); height: auto; margin: 6px auto 22px; }
+.investment-donut-count { fill: var(--ink); font-family: var(--font-data); font-size: 20px; font-weight: 800; }
+.investment-donut-caption { fill: var(--ink-soft); font-family: var(--font-ui); font-size: 12px; font-weight: 700; }
+.investment-donut-percentage { fill: var(--ink); font-family: var(--font-data); font-size: 12px; font-weight: 800; }
+.investment-donut-leader { fill: none; stroke-width: 1.5px; stroke-linecap: round; stroke-linejoin: round; }
 .investment-allocation-list { display: grid; gap: 10px; }
 .investment-allocation-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 9px; color: var(--ink-soft); font-size: .76rem; }
 .investment-allocation-row i { width: 8px; height: 8px; border-radius: 50%; }
@@ -264,6 +265,7 @@ tbody tr:hover { background: #f8fafc; }
 .investment-portfolio-name > span:last-child { display: grid; gap: 3px; min-width: 0; }
 .investment-portfolio-name strong { font-size: .82rem; }
 .investment-portfolio-name small { max-width: 250px; color: var(--ink-soft); font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.investment-value-note { display: block; margin-top: 3px; color: var(--ink-soft); font-size: .68rem; }
 .investment-action-cell { text-align: right; }
 .investment-rate-status { grid-column: 1 / -1; min-height: 39px; padding: 10px 12px; border-radius: 10px; background: var(--blue-soft); color: var(--blue-dark); font-size: .74rem; font-weight: 700; line-height: 1.4; }
 .investment-existing-record-note { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--blue-soft); color: var(--blue-dark); font-size: .74rem; font-weight: 700; line-height: 1.4; }
@@ -289,7 +291,7 @@ tbody tr:hover { background: #f8fafc; }
   .dashboard-grid { grid-template-columns: 1fr; }
   .investment-insight-grid { grid-template-columns: 1fr; }
   .investment-allocation-panel { min-height: 0; }
-  .investment-allocation-panel { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: center; }
+  .investment-allocation-panel { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 0 18px; align-items: center; }
   .investment-allocation-panel .panel-heading { grid-column: 1 / -1; }
 }
 

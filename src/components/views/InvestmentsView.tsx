@@ -1,11 +1,11 @@
-import { CSSProperties } from "react";
 import { InvestmentChart } from "../InvestmentChart";
+import { InvestmentAllocationChart } from "../InvestmentAllocationChart";
 import { EmptyState } from "../EmptyState";
 import {
   activeInvestmentPortfolios,
-  combinedInvestmentSummary,
+  combinedInvestmentDisplaySummary,
   investmentMonthlySeries,
-  portfolioInvestmentMetrics,
+  portfolioInvestmentDisplayMetrics,
 } from "../../lib/investments";
 import { investmentMoney, percentage } from "../../lib/format";
 import type {
@@ -26,11 +26,16 @@ type InvestmentsViewProps = {
 };
 
 const allocationColors = [
-  "var(--blue)",
-  "#5d82c6",
-  "#8aa2bc",
-  "#65a087",
-  "#b19a69",
+  "#2563eb", // Blue
+  "#ea580c", // Orange
+  "#16a34a", // Green
+  "#9333ea", // Purple
+  "#eab308", // Yellow
+  "#0891b2", // Cyan
+  "#db2777", // Pink
+  "#475569", // Slate
+  "#92400e", // Brown
+  "#84cc16", // Lime
 ];
 
 export function InvestmentsView({
@@ -45,25 +50,23 @@ export function InvestmentsView({
   const portfolios = activeInvestmentPortfolios(state);
   const rows = portfolios.map((portfolio) => ({
     portfolio,
-    metrics: portfolioInvestmentMetrics(
+    metrics: portfolioInvestmentDisplayMetrics(
       state,
       portfolio,
       state.selectedMonth,
       currency,
     ),
   }));
-  const summary = combinedInvestmentSummary(state, state.selectedMonth, currency);
+  const summary = combinedInvestmentDisplaySummary(state, state.selectedMonth, currency);
   const series = investmentMonthlySeries(state, state.selectedMonth, currency);
   const allocation = rows
     .filter(({ metrics }) => metrics.value > 0)
     .map(({ portfolio, metrics }, index) => ({
       portfolio,
       value: metrics.value,
-      color: allocationColors[index % allocationColors.length],
+      color: allocationColors[index] ?? `hsl(${(index * 137.508) % 360} 65% 45%)`,
     }));
-  const allocationStyle = {
-    "--investment-allocation": allocationGradient(allocation),
-  } as CSSProperties;
+  const allocationTotal = allocation.reduce((total, item) => total + item.value, 0);
   const isComplete = summary.completePortfolios === summary.totalPortfolios;
 
   return (
@@ -99,7 +102,7 @@ export function InvestmentsView({
           <strong>{investmentMoney(summary.value, currency)}</strong>
           <small>
             {summary.totalPortfolios
-              ? `${summary.completePortfolios}/${summary.totalPortfolios} portföy güncel`
+              ? `${summary.completePortfolios}/${summary.totalPortfolios} portföy bu ay güncel${summary.isEstimated ? " · Tahmini değer" : ""}`
               : "Henüz portföy yok"}
           </small>
         </article>
@@ -113,7 +116,7 @@ export function InvestmentsView({
           <strong className={summary.gain >= 0 ? "positive-value" : "negative-value"}>
             {investmentMoney(summary.gain, currency)}
           </strong>
-          <small>Ana paranın üzerinde kalan değer</small>
+          <small>{summary.isEstimated ? "Tahmini değer üzerinden hesaplanır" : "Ana paranın üzerinde kalan değer"}</small>
         </article>
         <article className="metric investment-metric-return">
           <span>{currency} yıllık getiri</span>
@@ -130,9 +133,16 @@ export function InvestmentsView({
         </article>
       </div>
 
+      {summary.isEstimated ? (
+        <div className="investment-status-note" role="status">
+          <strong>Tahmini değer</strong>
+          <span>Son değerlemeler ve ardından kaydedilen para hareketleri kullanılır. Piyasa değişimleri dahil değildir.</span>
+        </div>
+      ) : null}
+
       {!isComplete && summary.totalPortfolios ? (
         <div className="investment-status-note" role="status">
-          <strong>Bu ayın görünümü tamamlanmadı.</strong>
+          <strong>Bu ayın değerlemeleri tamamlanmadı.</strong>
           <span>Birleşik getiri için {summary.totalPortfolios - summary.completePortfolios} portföyün aylık kaydını ekle.</span>
         </div>
       ) : null}
@@ -151,17 +161,15 @@ export function InvestmentsView({
           <div className="panel-heading">
             <div>
               <h3>Dağılım</h3>
-              <p className="panel-note">Seçili ayın portföy ağırlıkları</p>
+              <p className="panel-note">{summary.isEstimated ? "Tahmini pozitif portföy değerlerinin ağırlıkları" : "Pozitif portföy değerlerinin ağırlıkları"}</p>
             </div>
           </div>
           {allocation.length ? (
             <>
-              <div className="investment-donut" style={allocationStyle} role="img" aria-label={allocationLabel(allocation)}>
-                <span>{allocation.length}<small>portföy</small></span>
-              </div>
+              <InvestmentAllocationChart allocation={allocation} />
               <div className="investment-allocation-list">
                 {allocation.map((item) => {
-                  const ratio = summary.value ? item.value / summary.value : 0;
+                  const ratio = allocationTotal ? item.value / allocationTotal : 0;
                   return (
                     <div className="investment-allocation-row" key={item.portfolio.id}>
                       <i style={{ background: item.color }} aria-hidden="true" />
@@ -191,11 +199,11 @@ export function InvestmentsView({
               <thead>
                 <tr>
                   <th>Portföy</th>
-                  <th className="amount-col">Güncel değer</th>
+                  <th className="amount-col">Portföy değeri</th>
                   <th className="amount-col">Net ana para</th>
                   <th className="amount-col">Net kazanç</th>
                   <th className="amount-col">{currency} XIRR</th>
-                  <th>Son kayıt</th>
+                  <th>Son değerleme</th>
                   <th><span className="visually-hidden">İşlem</span></th>
                 </tr>
               </thead>
@@ -208,11 +216,14 @@ export function InvestmentsView({
                         <span><strong>{portfolio.name}</strong><small>{portfolio.purpose}{portfolio.description ? ` · ${portfolio.description}` : ""}</small></span>
                       </div>
                     </td>
-                    <td data-label="Güncel değer" className="amount-col">{metrics.snapshot ? investmentMoney(metrics.value, currency) : "—"}</td>
+                    <td data-label="Portföy değeri" className="amount-col">
+                      {metrics.hasRecords ? investmentMoney(metrics.value, currency) : "—"}
+                      {metrics.isEstimated ? <small className="investment-value-note">Tahmini değer</small> : null}
+                    </td>
                     <td data-label="Net ana para" className="amount-col">{investmentMoney(metrics.netInvested, currency)}</td>
-                    <td data-label="Net kazanç" className={`amount-col ${metrics.gain >= 0 ? "positive-value" : "negative-value"}`}>{metrics.snapshot ? investmentMoney(metrics.gain, currency) : "—"}</td>
+                    <td data-label="Net kazanç" className={`amount-col ${metrics.gain >= 0 ? "positive-value" : "negative-value"}`}>{metrics.hasRecords ? investmentMoney(metrics.gain, currency) : "—"}</td>
                     <td data-label={`${currency} XIRR`} className={`amount-col ${metrics.xirr !== null && metrics.xirr >= 0 ? "positive-value" : metrics.xirr !== null ? "negative-value" : ""}`}>{percentage(metrics.xirr)}</td>
-                    <td data-label="Son kayıt">{metrics.snapshot ? formatSnapshotDate(metrics.snapshot.date) : "Eksik"}</td>
+                    <td data-label="Son değerleme">{metrics.snapshot ? formatSnapshotDate(metrics.snapshot.date) : metrics.hasRecords ? "Değerleme yok" : "Kayıt yok"}</td>
                     <td data-label="İşlem" className="investment-action-cell"><button className="row-action" type="button" onClick={() => onOpenHistory(portfolio)}>Kayıtlar</button></td>
                   </tr>
                 ))}
@@ -227,22 +238,6 @@ export function InvestmentsView({
   );
 }
 
-function allocationGradient(allocation: { value: number; color: string }[]) {
-  const total = allocation.reduce((sum, item) => sum + item.value, 0);
-  let cursor = 0;
-  const stops = allocation.map((item) => {
-    const start = cursor;
-    cursor += total ? (item.value / total) * 100 : 0;
-    return `${item.color} ${start}% ${cursor}%`;
-  });
-  return `conic-gradient(${stops.join(", ")})`;
-}
-
-function allocationLabel(allocation: { portfolio: InvestmentPortfolio; value: number }[]) {
-  const total = allocation.reduce((sum, item) => sum + item.value, 0);
-  return allocation.map((item) => `${item.portfolio.name} yüzde ${Math.round((item.value / total) * 100)}`).join(", ");
-}
-
 function formatSnapshotDate(date: string) {
-  return new Intl.DateTimeFormat("tr-TR", { month: "short", year: "numeric" }).format(new Date(`${date}T00:00:00`));
+  return new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${date}T00:00:00`));
 }

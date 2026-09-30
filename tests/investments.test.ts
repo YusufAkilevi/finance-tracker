@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeInvestmentPortfolios,
+  combinedInvestmentDisplaySummary,
   combinedInvestmentSummary,
   investmentMonthlySeries,
   investmentXirr,
   portfolioInvestmentMetrics,
+  portfolioInvestmentDisplayMetrics,
+  portfolioResidualValue,
   xirr,
 } from "../src/lib/investments";
 import {
@@ -67,6 +71,264 @@ describe("investment state migration", () => {
     ]);
     expect(normalized.investmentSnapshots).toEqual([]);
     expect(normalized.investmentCashFlows).toEqual([]);
+  });
+});
+
+describe("latest investment values for display", () => {
+  const tryPortfolio = { ...portfolio, id: "try", currency: "TRY" as const };
+
+  function valuation(
+    date: string,
+    totalValue: number,
+    target: InvestmentPortfolio = tryPortfolio,
+    usdTryRate = 40,
+  ): InvestmentSnapshot {
+    return {
+      id: `${target.id}-${date}`,
+      portfolioId: target.id,
+      date,
+      totalValue,
+      usdTryRate,
+      rateDate: date,
+      rateSource: "manual",
+    };
+  }
+
+  function movement(
+    date: string,
+    amount: number,
+    type: InvestmentCashFlow["type"] = "contribution",
+    target: InvestmentPortfolio = tryPortfolio,
+    usdTryRate = 40,
+  ): InvestmentCashFlow {
+    return {
+      id: `${target.id}-${date}-${type}`,
+      portfolioId: target.id,
+      date,
+      amount,
+      type,
+      currency: target.currency,
+      usdTryRate,
+      rateDate: date,
+      rateSource: "manual",
+    };
+  }
+
+  it.each(["2026-10", "2026-12", "2027-01"])(
+    "carries September values into %s without inventing monthly records or returns",
+    (month) => {
+      const state = stateWithInvestments(
+        [tryPortfolio],
+        [valuation("2026-09-30", 100_000)],
+        [movement("2026-01-01", 90_000)],
+      );
+      const before = structuredClone(state);
+      const metrics = portfolioInvestmentDisplayMetrics(state, tryPortfolio, month, "TRY");
+      expect(metrics).toMatchObject({
+        value: 100_000, netInvested: 90_000, gain: 10_000,
+        isEstimated: true, hasRecords: true, hasCurrentMonthSnapshot: false, xirr: null,
+      });
+      expect(metrics.snapshot?.date).toBe("2026-09-30");
+      expect(combinedInvestmentDisplaySummary(state, month, "TRY")).toMatchObject({
+        value: 100_000, netInvested: 90_000, gain: 10_000,
+        completePortfolios: 0, totalPortfolios: 1, isEstimated: true, xirr: null,
+      });
+      expect(investmentMonthlySeries(state, month, "TRY")).toEqual([
+        { month: "2026-09", value: 100_000, invested: 90_000 },
+      ]);
+      expect(state).toEqual(before);
+    },
+  );
+
+  it("adds subsequent contributions and withdrawals without changing earned gain", () => {
+    const state = stateWithInvestments(
+      [tryPortfolio],
+      [valuation("2026-09-30", 100_000)],
+      [
+        movement("2026-01-01", 90_000),
+        movement("2026-10-01", 5_000),
+        movement("2026-10-02", 2_000, "withdrawal"),
+        movement("2026-11-01", 20_000),
+      ],
+    );
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-10", "TRY"))
+      .toMatchObject({ value: 103_000, netInvested: 93_000, gain: 10_000, isEstimated: true });
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY"))
+      .toMatchObject({ value: 103_000, netInvested: 93_000, gain: 10_000 });
+    expect(combinedInvestmentDisplaySummary(state, "2026-09", "TRY"))
+      .toMatchObject({ value: 100_000, netInvested: 90_000, isEstimated: false });
+  });
+
+  it("replaces the estimate with a new valuation and never re-adds same-day movements", () => {
+    const state = stateWithInvestments(
+      [tryPortfolio],
+      [valuation("2026-10-20", 110_000), valuation("2026-09-30", 100_000)],
+      [
+        movement("2026-01-01", 90_000),
+        movement("2026-10-01", 5_000),
+        movement("2026-10-02", 2_000, "withdrawal"),
+        { ...movement("2026-10-20", 4_000), snapshotId: "try-2026-10-20" },
+        movement("2026-10-20", 500, "withdrawal"),
+        movement("2026-10-21", 1_000, "withdrawal"),
+      ],
+    );
+    const metrics = portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-10", "TRY");
+    expect(metrics).toMatchObject({
+      value: 109_000, netInvested: 95_500, gain: 13_500,
+      hasCurrentMonthSnapshot: true, isEstimated: true,
+    });
+    expect(metrics.snapshot?.date).toBe("2026-10-20");
+    expect(metrics.xirr).toBe(investmentXirr(state, tryPortfolio, "2026-10", "TRY"));
+    const actualSummary = combinedInvestmentSummary(state, "2026-10", "TRY");
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY")).toMatchObject({
+      value: 109_000, completePortfolios: 1, xirr: actualSummary.xirr,
+      historyMonths: actualSummary.historyMonths,
+    });
+    expect(investmentMonthlySeries(state, "2026-10", "TRY").at(-1))
+      .toEqual({ month: "2026-10", value: 110_000, invested: 96_500 });
+
+    const withoutLaterWithdrawal = {
+      ...state,
+      investmentCashFlows: state.investmentCashFlows.filter((flow) => flow.date !== "2026-10-21"),
+    };
+    expect(portfolioInvestmentDisplayMetrics(withoutLaterWithdrawal, tryPortfolio, "2026-10", "TRY"))
+      .toMatchObject({ value: 110_000, isEstimated: false, hasCurrentMonthSnapshot: true });
+  });
+
+  it("combines current and carried valuations while counting only actual monthly coverage", () => {
+    const second = { ...tryPortfolio, id: "second" };
+    const state = stateWithInvestments(
+      [tryPortfolio, second],
+      [
+        valuation("2026-09-30", 100_000),
+        valuation("2026-10-15", 110_000),
+        valuation("2026-09-30", 50_000, second),
+      ],
+      [],
+    );
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY"))
+      .toMatchObject({ value: 160_000, completePortfolios: 1, totalPortfolios: 2, isEstimated: true, xirr: null });
+    expect(investmentMonthlySeries(state, "2026-10", "TRY"))
+      .toEqual([{ month: "2026-09", value: 150_000, invested: 0 }]);
+  });
+
+  it("ignores future valuations and movements when viewing an earlier month", () => {
+    const state = stateWithInvestments(
+      [tryPortfolio],
+      [valuation("2026-11-01", 200_000), valuation("2026-09-30", 100_000)],
+      [movement("2026-11-01", 20_000)],
+    );
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-10", "TRY"))
+      .toMatchObject({ value: 100_000, netInvested: 0, snapshot: { date: "2026-09-30" } });
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-08", "TRY"))
+      .toMatchObject({ value: 0, hasRecords: false, isEstimated: false, snapshot: null });
+  });
+
+  it("uses the fixed rate of each valuation and later movement in either display currency", () => {
+    const state = stateWithInvestments(
+      [tryPortfolio],
+      [valuation("2026-09-30", 100_000, tryPortfolio, 40)],
+      [
+        movement("2026-01-01", 90_000, "contribution", tryPortfolio, 30),
+        movement("2026-10-01", 5_000, "contribution", tryPortfolio, 50),
+        movement("2026-10-02", 2_000, "withdrawal", tryPortfolio, 40),
+      ],
+    );
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "USD"))
+      .toMatchObject({ value: 2_550, netInvested: 3_050, gain: -500 });
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY"))
+      .toMatchObject({ value: 103_000, netInvested: 93_000, gain: 10_000 });
+  });
+
+  it.each(["TRY", "USD"] as const)("applies paired cross-currency transfers without adding external capital in %s", (currency) => {
+    const state = stateWithInvestments(
+      [portfolio, tryPortfolio],
+      [valuation("2026-09-30", 1_000, portfolio), valuation("2026-09-30", 40_000)],
+      [
+        movement("2026-01-01", 1_000, "contribution", portfolio),
+        movement("2026-01-01", 40_000),
+      ],
+    );
+    const transferred = saveInvestmentFlowState(state, null, {
+      type: "transfer", portfolioId: portfolio.id, destinationPortfolioId: tryPortfolio.id,
+      date: "2026-10-01", amount: 200, destinationAmount: 10_000,
+      usdTryRate: 50, rateDate: "2026-10-01", rateSource: "manual", note: "",
+    });
+    const before = combinedInvestmentDisplaySummary(state, "2026-10", currency);
+    const after = combinedInvestmentDisplaySummary(transferred, "2026-10", currency);
+    expect(after.value).toBe(before.value);
+    expect(after.netInvested).toBe(before.netInvested);
+    expect(after.gain).toBe(before.gain);
+    expect(portfolioInvestmentDisplayMetrics(transferred, portfolio, "2026-10", "USD").value).toBe(800);
+    expect(portfolioInvestmentDisplayMetrics(transferred, tryPortfolio, "2026-10", "TRY").value).toBe(50_000);
+  });
+
+  it("moves value between portfolios in the same currency without affecting combined capital", () => {
+    const second = { ...tryPortfolio, id: "second" };
+    const state = stateWithInvestments(
+      [tryPortfolio, second],
+      [valuation("2026-09-30", 100_000), valuation("2026-09-30", 50_000, second)],
+      [movement("2026-01-01", 150_000)],
+    );
+    const transferred = saveInvestmentFlowState(state, null, {
+      type: "transfer", portfolioId: tryPortfolio.id, destinationPortfolioId: second.id,
+      date: "2026-10-01", amount: 10_000, usdTryRate: 40,
+      rateDate: "2026-10-01", rateSource: "manual", note: "",
+    });
+    expect(portfolioInvestmentDisplayMetrics(transferred, tryPortfolio, "2026-10", "TRY").value).toBe(90_000);
+    expect(portfolioInvestmentDisplayMetrics(transferred, second, "2026-10", "TRY").value).toBe(60_000);
+    expect(combinedInvestmentDisplaySummary(transferred, "2026-10", "TRY"))
+      .toMatchObject({ value: 150_000, netInvested: 150_000, gain: 0 });
+  });
+
+  it("keeps archived external capital through the archive date but excludes its value", () => {
+    const archived = { ...tryPortfolio, id: "closed", archivedAt: "2026-10-10T12:00:00.000Z" };
+    const future = { ...tryPortfolio, id: "future", createdAt: "2026-11-01T00:00:00.000Z" };
+    const state = stateWithInvestments(
+      [tryPortfolio, archived, future],
+      [valuation("2026-09-30", 100_000), valuation("2026-09-30", 50_000, archived)],
+      [
+        movement("2026-01-01", 90_000),
+        movement("2026-01-01", 50_000, "contribution", archived),
+        movement("2026-10-10", 55_000, "withdrawal", archived),
+        movement("2026-10-11", 99_000, "contribution", archived),
+        movement("2026-11-01", 99_000, "contribution", future),
+      ],
+    );
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY"))
+      .toMatchObject({ value: 100_000, netInvested: 85_000, gain: 15_000, totalPortfolios: 1 });
+    expect(combinedInvestmentDisplaySummary(state, "2026-09", "TRY"))
+      .toMatchObject({ value: 150_000, netInvested: 140_000, totalPortfolios: 2 });
+  });
+
+  it("estimates movement-only portfolios and distinguishes them from portfolios with no records", () => {
+    const state = stateWithInvestments(
+      [tryPortfolio], [], [movement("2026-10-01", 5_000), movement("2026-10-02", 2_000, "withdrawal")],
+    );
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-10", "TRY"))
+      .toMatchObject({ value: 3_000, netInvested: 3_000, gain: 0, hasRecords: true, isEstimated: true, snapshot: null, xirr: null });
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY"))
+      .toMatchObject({ value: 3_000, netInvested: 3_000, completePortfolios: 0 });
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-09", "TRY"))
+      .toMatchObject({ value: 0, hasRecords: false, isEstimated: false });
+  });
+
+  it.each([0, -2_000])("preserves a resulting value of %s rather than treating it as missing or clamping it", (value) => {
+    const state = stateWithInvestments(
+      [tryPortfolio], [valuation("2026-09-30", 1_000)],
+      [movement("2026-10-01", 1_000 - value, "withdrawal")],
+    );
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-10", "TRY"))
+      .toMatchObject({ value, hasRecords: true, isEstimated: true });
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY").value).toBe(value);
+  });
+
+  it("recognizes a zero valuation as a real, current monthly record", () => {
+    const state = stateWithInvestments([tryPortfolio], [valuation("2026-10-01", 0)], []);
+    expect(portfolioInvestmentDisplayMetrics(state, tryPortfolio, "2026-10", "TRY"))
+      .toMatchObject({ value: 0, hasRecords: true, hasCurrentMonthSnapshot: true, isEstimated: false });
+    expect(combinedInvestmentDisplaySummary(state, "2026-10", "TRY"))
+      .toMatchObject({ value: 0, completePortfolios: 1, isEstimated: false });
   });
 });
 
@@ -514,5 +776,106 @@ describe("investment mutations", () => {
 
     expect(edited.investmentPortfolios[0].name).toBe("Renamed");
     expect(edited.investmentPortfolios[0].currency).toBe("USD");
+  });
+});
+
+describe("portfolio activity across months", () => {
+  it("does not let an archived, never-used starter portfolio block earlier months", () => {
+    const base = normalizeState({ selectedMonth: "2026-08" });
+    const recorded = ["investment-us-etf", "investment-bist", "investment-tefas", "investment-bes-1"];
+    const state: FinanceState = {
+      ...base,
+      investmentPortfolios: base.investmentPortfolios.map((item) =>
+        item.id === "investment-bes-2" ? { ...item, archivedAt: "2026-09-27T20:00:00.000Z" } : item,
+      ),
+      investmentSnapshots: recorded.map((portfolioId) => ({
+        id: `${portfolioId}-aug`,
+        portfolioId,
+        date: "2026-08-31",
+        totalValue: 1_000,
+        usdTryRate: 40,
+        rateDate: "2026-08-31",
+        rateSource: "manual",
+      })),
+    };
+
+    expect(activeInvestmentPortfolios(state, "2026-08").map(({ id }) => id)).toEqual(recorded);
+    const summary = combinedInvestmentSummary(state, "2026-08", "USD");
+    expect(summary.completePortfolios).toBe(4);
+    expect(summary.totalPortfolios).toBe(4);
+    expect(investmentMonthlySeries(state, "2026-09", "USD")).toHaveLength(1);
+  });
+
+  it("keeps an archived starter portfolio active for months where it has records", () => {
+    const base = normalizeState({ selectedMonth: "2026-08" });
+    const state: FinanceState = {
+      ...base,
+      investmentPortfolios: base.investmentPortfolios.map((item) =>
+        item.id === "investment-bes-2" ? { ...item, archivedAt: "2026-09-27T20:00:00.000Z" } : item,
+      ),
+      investmentSnapshots: [{
+        id: "bes-2-jul",
+        portfolioId: "investment-bes-2",
+        date: "2026-07-31",
+        totalValue: 1_000,
+        usdTryRate: 40,
+        rateDate: "2026-07-31",
+        rateSource: "manual",
+      }],
+    };
+
+    expect(activeInvestmentPortfolios(state, "2026-08").map(({ id }) => id)).toContain("investment-bes-2");
+  });
+
+  it("treats a portfolio archived on the last day of a month as inactive for that month", () => {
+    const archived: InvestmentPortfolio = {
+      ...portfolio,
+      id: "closing",
+      archivedAt: "2026-09-30T10:00:00.000Z",
+    };
+    const state = stateWithInvestments([archived], [{
+      id: "closing-snapshot",
+      portfolioId: "closing",
+      date: "2026-06-30",
+      totalValue: 1_000,
+      usdTryRate: 40,
+      rateDate: "2026-06-30",
+      rateSource: "manual",
+    }], []);
+
+    expect(activeInvestmentPortfolios(state, "2026-09")).toEqual([]);
+    expect(activeInvestmentPortfolios(state, "2026-08").map(({ id }) => id)).toEqual(["closing"]);
+  });
+
+  it("reports the value a portfolio still holds before archiving", () => {
+    const state = stateWithInvestments([portfolio], [{
+      id: "snapshot",
+      portfolioId: portfolio.id,
+      date: "2024-12-31",
+      totalValue: 1_000,
+      usdTryRate: 40,
+      rateDate: "2024-12-31",
+      rateSource: "manual",
+    }], [{
+      id: "later-withdrawal",
+      portfolioId: portfolio.id,
+      date: "2025-01-10",
+      type: "withdrawal",
+      amount: 400,
+      currency: "USD",
+      usdTryRate: 40,
+      rateDate: "2025-01-10",
+      rateSource: "manual",
+    }]);
+
+    expect(portfolioResidualValue(state, portfolio.id)).toBe(600);
+    expect(portfolioResidualValue(state, "unknown")).toBe(0);
+  });
+
+  it("returns a total loss instead of no data when nothing ever came back", () => {
+    expect(xirr([
+      { date: "2024-01-01", amount: -1_000 },
+      { date: "2025-01-01", amount: 0 },
+    ])).toBe(-1);
   });
 });

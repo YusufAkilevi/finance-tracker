@@ -23,19 +23,21 @@ export function InvestmentChart({ currency, points }: InvestmentChartProps) {
     );
   }
 
-  const maximum = Math.max(
-    1,
-    ...points.flatMap((point) => [point.value, point.invested]),
-  );
+  const allValues = points.flatMap((point) => [point.value, point.invested]);
+  const maximum = Math.max(1, ...allValues);
+  // Net invested capital can go negative once withdrawals exceed contributions.
+  const minimum = Math.min(0, ...allValues);
+  const range = maximum - minimum;
   const plotWidth = WIDTH - LEFT - RIGHT;
   const plotHeight = HEIGHT - TOP - BOTTOM;
   const x = (index: number) =>
     LEFT + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
-  const y = (value: number) => TOP + plotHeight - (Math.max(value, 0) / maximum) * plotHeight;
+  const y = (value: number) => TOP + plotHeight - ((value - minimum) / range) * plotHeight;
+  const baselineY = y(0);
   const valuePath = linePath(points.map((point, index) => [x(index), y(point.value)]));
   const investedPath = linePath(points.map((point, index) => [x(index), y(point.invested)]));
-  const areaPath = `${valuePath} L ${x(points.length - 1)} ${TOP + plotHeight} L ${x(0)} ${TOP + plotHeight} Z`;
-  const tickValues = [maximum, maximum * 0.66, maximum * 0.33, 0];
+  const areaPath = `${valuePath} L ${x(points.length - 1)} ${baselineY} L ${x(0)} ${baselineY} Z`;
+  const tickValues = [maximum, minimum + range * 0.66, minimum + range * 0.33, minimum];
 
   return (
     <div className="investment-chart-wrap">
