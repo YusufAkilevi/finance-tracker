@@ -32,7 +32,7 @@
 - Each yearly-summary month uses the same expense calculation as the selected-month “Toplam Harcama” metric: saved expenses plus automatic card installments belonging to `Ben`. Other people's installments remain excluded.
 - For every credit card, the following-month payment-plan amount equals all of that card's expenses in the selected month. For example, August manual expenses plus August automatic `Ben` installments become September's card payment; September installments belong to October's payment. The Akbank payment row maps to the Axess card.
 - Empty and filtered-no-result states occupy the table surface.
-- The expenses table has independent category and credit-card filters. Active filters combine with AND logic; “Kartsız” matches expenses without a selected credit card. Filtering does not change the monthly category summary.
+- The expenses table has independent category and credit-card filters. The category filter allows selecting multiple categories; an expense matches when its category is any of the selected ones. Category and card filters combine with AND logic; “Kartsız” matches expenses without a selected credit card. Filtering does not change the monthly category summary.
 - The “Filtrelenen Toplam” below the expenses table always sums the currently visible rows; with no active filters it represents all expenses in the selected month, and an empty result shows zero.
 - Budget amounts save on blur; checkboxes save immediately.
 - On phones, the complete payment plan is one ledger surface—not separate cards. A shared header establishes payment, selected-month, and following-month columns; each divided row keeps both amounts side by side with its status and actions in a compact control line below.

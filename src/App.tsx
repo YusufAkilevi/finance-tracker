@@ -74,7 +74,9 @@ import type {
 function App() {
   const [state, setState] = useState<FinanceState>(() => defaultState());
   const [view, setView] = useState<View>("dashboard");
-  const [expenseSearch, setExpenseSearch] = useState("");
+  const [expenseCategoryFilters, setExpenseCategoryFilters] = useState<
+    string[]
+  >([]);
   const [expenseCardFilter, setExpenseCardFilter] =
     useState<ExpenseCardFilter>("");
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
@@ -130,12 +132,12 @@ function App() {
     [state.debts],
   );
   const scheduleMonths = useMemo(() => buildMonthRange(currentMonth(), 12), []);
-  const selectedExpenseFilter = categories.includes(expenseSearch)
-    ? expenseSearch
-    : "";
+  const selectedExpenseFilters = expenseCategoryFilters.filter((category) =>
+    categories.includes(category),
+  );
   const filteredExpenses = filterExpenses(
     expenses,
-    selectedExpenseFilter,
+    selectedExpenseFilters,
     expenseCardFilter,
   )
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -667,12 +669,12 @@ function App() {
             expenses={expenses}
             filteredExpenses={filteredExpenses}
             selectedCreditCardFilter={expenseCardFilter}
-            selectedExpenseFilter={selectedExpenseFilter}
+            selectedExpenseFilters={selectedExpenseFilters}
             onAddExpense={openExpenseModal}
             onDeleteExpense={deleteExpense}
             onEditExpense={openExpenseEditModal}
             onCreditCardFilterChange={setExpenseCardFilter}
-            onFilterChange={setExpenseSearch}
+            onFilterChange={setExpenseCategoryFilters}
           />
 
           <DebtsView

@@ -41,14 +41,14 @@ describe("expense filters", () => {
       finance as typeof finance & {
         filterExpenses: (
           expenses: Expense[],
-          category: string,
+          categories: string[],
           creditCard: string,
         ) => Expense[];
       }
     ).filterExpenses;
 
     expect(filterExpenses).toBeTypeOf("function");
-    expect(filterExpenses(expenses, "Market", "Axess").map(({ id }) => id)).toEqual([
+    expect(filterExpenses(expenses, ["Market"], "Axess").map(({ id }) => id)).toEqual([
       "axess-market",
     ]);
   });
@@ -56,9 +56,42 @@ describe("expense filters", () => {
   it("shows expenses without a credit card in the cardless filter", () => {
     const filterExpenses = finance.filterExpenses;
 
-    expect(filterExpenses(expenses, "", "cardless").map(({ id }) => id)).toEqual([
+    expect(filterExpenses(expenses, [], "cardless").map(({ id }) => id)).toEqual([
       "cash-transport",
     ]);
+  });
+
+  it("matches any of several selected categories", () => {
+    expect(
+      finance
+        .filterExpenses(expenses, ["Market", "Ulaşım"], "")
+        .map(({ id }) => id),
+    ).toEqual(["axess-market", "ziraat-market", "cash-transport"]);
+    expect(
+      finance
+        .filterExpenses(expenses, ["Market", "Ulaşım"], "cardless")
+        .map(({ id }) => id),
+    ).toEqual(["cash-transport"]);
+  });
+
+  it("summarises multiple selected categories in the filter trigger", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ExpensesView, {
+        activeView: "expenses",
+        categories: ["Market", "Ulaşım"],
+        expenses,
+        filteredExpenses: expenses,
+        selectedCreditCardFilter: "",
+        selectedExpenseFilters: ["Market", "Ulaşım"],
+        onAddExpense: () => undefined,
+        onDeleteExpense: () => undefined,
+        onEditExpense: () => undefined,
+        onCreditCardFilterChange: () => undefined,
+        onFilterChange: () => undefined,
+      }),
+    );
+
+    expect(markup).toContain("2 tür seçili");
   });
 
   it("offers a separate credit-card filter beside the category filter", () => {
@@ -69,7 +102,7 @@ describe("expense filters", () => {
         expenses,
         filteredExpenses: expenses,
         selectedCreditCardFilter: "",
-        selectedExpenseFilter: "",
+        selectedExpenseFilters: [],
         onAddExpense: () => undefined,
         onDeleteExpense: () => undefined,
         onEditExpense: () => undefined,
@@ -93,7 +126,7 @@ describe("expense filters", () => {
         expenses,
         filteredExpenses: [expenses[0]],
         selectedCreditCardFilter: "Axess",
-        selectedExpenseFilter: "Market",
+        selectedExpenseFilters: ["Market"],
         onAddExpense: () => undefined,
         onDeleteExpense: () => undefined,
         onEditExpense: () => undefined,

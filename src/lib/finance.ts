@@ -237,12 +237,12 @@ export function expenseCategories(state: FinanceState) {
 
 export function filterExpenses(
   expenses: Expense[],
-  categoryFilter: string,
+  categoryFilters: string[],
   cardFilter: ExpenseCardFilter,
 ) {
   return expenses.filter((expense) => {
     const matchesCategory =
-      !categoryFilter || expense.category === categoryFilter;
+      !categoryFilters.length || categoryFilters.includes(expense.category);
     const matchesCard =
       !cardFilter ||
       (cardFilter === "cardless"

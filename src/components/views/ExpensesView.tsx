@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { BarList } from "../BarList";
 import { EmptyState } from "../EmptyState";
 import { sortedTotals, sum } from "../../lib/finance";
@@ -10,13 +11,95 @@ type ExpensesViewProps = {
   expenses: Expense[];
   filteredExpenses: Expense[];
   selectedCreditCardFilter: ExpenseCardFilter;
-  selectedExpenseFilter: string;
+  selectedExpenseFilters: string[];
   onAddExpense: () => void;
   onDeleteExpense: (expenseId: string) => void;
   onEditExpense: (expenseId: string) => void;
   onCreditCardFilterChange: (creditCard: ExpenseCardFilter) => void;
-  onFilterChange: (category: string) => void;
+  onFilterChange: (categories: string[]) => void;
 };
+
+type CategoryMultiSelectProps = {
+  categories: string[];
+  selected: string[];
+  onChange: (categories: string[]) => void;
+};
+
+function categoryFilterLabel(selected: string[]) {
+  if (!selected.length) return "Tüm harcama türleri";
+  if (selected.length === 1) return selected[0];
+  return `${selected.length} tür seçili`;
+}
+
+function CategoryMultiSelect({
+  categories,
+  selected,
+  onChange,
+}: CategoryMultiSelectProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  const toggle = (category: string) =>
+    onChange(
+      selected.includes(category)
+        ? selected.filter((item) => item !== category)
+        : [...selected, category],
+    );
+
+  return (
+    <div className="multi-select" ref={rootRef}>
+      <button
+        className="multi-select-trigger"
+        type="button"
+        aria-label="Harcamaları kategoriye göre filtrele"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span>{categoryFilterLabel(selected)}</span>
+      </button>
+      {open && (
+        <div className="multi-select-menu" role="group" aria-label="Harcama türleri">
+          {categories.map((category) => (
+            <label key={category} className="multi-select-option">
+              <input
+                type="checkbox"
+                checked={selected.includes(category)}
+                onChange={() => toggle(category)}
+              />
+              <span>{category}</span>
+            </label>
+          ))}
+          {selected.length > 0 && (
+            <button
+              className="multi-select-clear"
+              type="button"
+              onClick={() => onChange([])}
+            >
+              Seçimi temizle
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ExpensesView({
   activeView,
@@ -24,7 +107,7 @@ export function ExpensesView({
   expenses,
   filteredExpenses,
   selectedCreditCardFilter,
-  selectedExpenseFilter,
+  selectedExpenseFilters,
   onAddExpense,
   onDeleteExpense,
   onEditExpense,
@@ -62,18 +145,11 @@ export function ExpensesView({
           <div className="panel-heading split-heading">
             <h3>Aylık Harcamalar</h3>
             <div className="expense-filter-controls">
-              <select
-                aria-label="Harcamaları kategoriye göre filtrele"
-                value={selectedExpenseFilter}
-                onChange={(event) => onFilterChange(event.target.value)}
-              >
-                <option value="">Tüm harcama türleri</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+              <CategoryMultiSelect
+                categories={categories}
+                selected={selectedExpenseFilters}
+                onChange={onFilterChange}
+              />
               <select
                 aria-label="Harcamaları kredi kartına göre filtrele"
                 value={selectedCreditCardFilter}
