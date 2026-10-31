@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { monthlyPayment, normalizeCreditCard } from "../lib/finance";
+import { expenseNote, monthlyPayment, normalizeCreditCard } from "../lib/finance";
 import { todayISO } from "../lib/date";
 import type { Debt, Expense } from "../types";
 
@@ -73,6 +73,7 @@ export function ExpenseModal({ categories, expense, onClose, onSubmit }: Expense
           <label>Tutar (₺)<input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" placeholder="0,00" defaultValue={expense?.amount || ""} required /></label>
           <label>Kategori<select name="category" defaultValue={expense?.category || ""} required><option value="" disabled>Kategori seçin</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
           <label>Kredi kartı<select name="creditCard" defaultValue={normalizeCreditCard(expense?.creditCard)}><option value="">Kart kullanılmadı</option><option value="Ziraat">Ziraat</option><option value="Axess">Axess</option><option value="Garanti">Garanti</option></select></label>
+          <label className="wide"><span>Açıklama <small className="optional-hint">(isteğe bağlı)</small></span><input name="description" maxLength={200} placeholder="Örn. Ayşe'nin doğum günü hediyesi" defaultValue={expense ? expenseNote(expense) : ""} /></label>
         </div>
         <FormError id="expenseFormError" message={validation.error} />
         <ModalActions onClose={onClose} submitLabel={expense ? "Değişiklikleri kaydet" : "Harcamayı ekle"} />

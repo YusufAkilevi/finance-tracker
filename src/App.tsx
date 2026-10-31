@@ -306,7 +306,7 @@ function App() {
     const creditCard = normalizeCreditCard(formValue(form, "creditCard"));
     const values = {
       date: formValue(form, "date"),
-      description: category,
+      description: formValue(form, "description").trim() || category,
       category,
       amount: Number(formValue(form, "amount")),
       creditCard,

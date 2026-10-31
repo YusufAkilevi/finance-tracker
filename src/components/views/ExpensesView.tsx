@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BarList } from "../BarList";
 import { EmptyState } from "../EmptyState";
-import { sortedTotals, sum } from "../../lib/finance";
+import { expenseNote, sortedTotals, sum } from "../../lib/finance";
 import { formatDate, money } from "../../lib/format";
 import type { Expense, ExpenseCardFilter, View } from "../../types";
 
@@ -184,7 +184,12 @@ export function ExpensesView({
                   filteredExpenses.map((expense) => (
                     <tr key={expense.id}>
                       <td data-label="Tarih">{formatDate(expense.date)}</td>
-                      <td data-label="Açıklama">{expense.description}</td>
+                      <td
+                        data-label="Açıklama"
+                        className={expenseNote(expense) ? "expense-note" : "expense-note is-empty"}
+                      >
+                        {expenseNote(expense) || "-"}
+                      </td>
                       <td data-label="Kategori">{expense.category}</td>
                       <td data-label="Kart">
                         {expense.creditCard || expense.method || "-"}

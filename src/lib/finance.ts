@@ -35,6 +35,12 @@ export function createExpense(
   };
 }
 
+// Expenses without a note store their category as the description.
+export function expenseNote(expense: Pick<Expense, "category" | "description">) {
+  const description = expense.description?.trim() || "";
+  return description === expense.category ? "" : description;
+}
+
 export function createDebt(
   name: string,
   monthlyAmount: number,
