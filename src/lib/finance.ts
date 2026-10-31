@@ -227,6 +227,7 @@ export function expenseCategories(state: FinanceState) {
       "Market",
       "Ulaşım",
       "Dışarıda Yemek",
+      "Yemek Siparişi",
       "Faturalar",
       "Kira",
       "Taksit",
