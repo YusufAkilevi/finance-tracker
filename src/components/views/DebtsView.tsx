@@ -108,15 +108,11 @@ export function DebtsView({
                     </tr>
                   </thead>
                   <tbody>
-                    {schedule.debts.map((debt, index) => (
+                    {schedule.debts.map((debt) => (
                       <tr key={debt.id} data-debt-row={debt.id} className={`${draggedId === debt.id ? "is-dragging" : ""} ${targetId === debt.id && targetId !== draggedId ? "debt-drop-target" : ""}`}>
                         <th><span className="debt-name-cell">
                           <span className="drag-handle" aria-hidden="true" title="Sırayı değiştirmek için sürükle" onPointerDown={(event) => { if (event.button !== 0) return; event.preventDefault(); setDraggedId(debt.id); }} />
                           <span>{debt.name}</span>
-                          <span className="budget-reorder-buttons debt-reorder-buttons">
-                            <button type="button" aria-label={`${debt.name} yukarı taşı`} disabled={index === 0} onClick={() => onReorderDebt(debt.id, schedule.debts[index - 1].id)}>↑</button>
-                            <button type="button" aria-label={`${debt.name} aşağı taşı`} disabled={index === schedule.debts.length - 1} onClick={() => onReorderDebt(debt.id, schedule.debts[index + 1].id)}>↓</button>
-                          </span>
                         </span></th>
                         {scheduleMonths.map((month) => {
                           const payment = scheduledDebtPayment(debt, month);
