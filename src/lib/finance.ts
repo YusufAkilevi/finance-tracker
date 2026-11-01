@@ -82,6 +82,11 @@ export function groupDebtSchedulesByPerson(
   const schedules = new Map<string, PersonDebtSchedule>();
 
   debts.forEach((debt) => {
+    const firstMonth = months[0];
+    if (firstMonth && !isRecurringDebt(debt) && (
+      debt.paidInstallments >= debt.totalInstallments ||
+      monthDiff(debt.startMonth, firstMonth) >= debt.totalInstallments
+    )) return;
     const person = normalizeDebtPerson(debt.person);
     const schedule = schedules.get(person) || {
       person,

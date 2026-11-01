@@ -131,7 +131,7 @@ function App() {
       ),
     [state.debts],
   );
-  const scheduleMonths = useMemo(() => buildMonthRange(currentMonth(), 12), []);
+  const scheduleMonths = useMemo(() => buildMonthRange(state.selectedMonth, 12), [state.selectedMonth]);
   const selectedExpenseFilters = expenseCategoryFilters.filter((category) =>
     categories.includes(category),
   );

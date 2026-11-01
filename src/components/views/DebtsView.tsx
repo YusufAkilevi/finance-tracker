@@ -135,7 +135,7 @@ export function DebtsView({
           ))
         ) : (
           <section className="panel installment-schedule-panel">
-            <EmptyState text="Henüz taksitli borç eklenmedi." />
+            <EmptyState text="Bu dönem için devam eden taksit bulunmuyor." />
           </section>
         )}
       </div>

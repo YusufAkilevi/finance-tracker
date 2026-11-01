@@ -87,6 +87,23 @@ describe("person-based installment data", () => {
     ]);
   });
 
+  it("hides finished installments after their last month while retaining future and recurring payments", () => {
+    const base: Debt = {
+      id: "finished", name: "Telefon", person: "Ben", monthlyAmount: 1_000,
+      total: 2_000, totalInstallments: 2, paidInstallments: 0,
+      startMonth: "2026-08", dueDay: 1, creditCard: "", recurring: false,
+    };
+    const future = { ...base, id: "future", name: "Gelecek", startMonth: "2028-01" };
+    const recurring = { ...base, id: "recurring", name: "Kira", recurring: true };
+    const paid = { ...base, id: "paid", name: "Ödendi", paidInstallments: 2 };
+
+    expect(groupDebtSchedulesByPerson([base], ["2026-09"])[0].debts).toEqual([base]);
+    const schedules = groupDebtSchedulesByPerson([base, future, recurring, paid], ["2026-10", "2026-11"]);
+    expect(schedules[0].debts).toEqual([future, recurring]);
+    expect(schedules[0].monthTotals).toEqual([1_000, 1_000]);
+    expect(groupDebtSchedulesByPerson([base], ["2026-10"])).toEqual([]);
+  });
+
   it("stores the selected person when creating an installment", () => {
     const state = normalizeState({
       selectedMonth: "2026-08",
