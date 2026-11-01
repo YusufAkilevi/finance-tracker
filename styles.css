@@ -182,8 +182,13 @@ tbody tr:hover { background: #f8fafc; }
 
 .installment-schedule-panel { min-width: 0; }
 .debt-content-grid { grid-template-columns: minmax(0, 1fr); }
-.schedule-scroll-actions { display: flex; flex: 0 0 auto; gap: 6px; }
-.schedule-scroll-actions .row-action { min-width: 40px; font-size: 1rem; }
+#debtsView .table-wrap { scrollbar-width: none; }
+#debtsView .table-wrap::-webkit-scrollbar { display: none; }
+.schedule-scrollbar { display: block; width: 100%; min-height: 24px; margin: 8px 0 0; padding: 0; border: 0; background: transparent; appearance: none; cursor: pointer; }
+.schedule-scrollbar::-webkit-slider-runnable-track { height: 8px; border-radius: 999px; background: #e5ebef; }
+.schedule-scrollbar::-webkit-slider-thumb { width: 80px; height: 12px; margin-top: -2px; border: 0; border-radius: 999px; background: #8d9ca8; appearance: none; cursor: grab; }
+.schedule-scrollbar::-moz-range-track { height: 8px; border-radius: 999px; background: #e5ebef; }
+.schedule-scrollbar::-moz-range-thumb { width: 80px; height: 12px; border: 0; border-radius: 999px; background: #8d9ca8; cursor: grab; }
 .schedule-grid-table { min-width: 1100px; }
 .schedule-grid-table th:first-child { position: sticky; left: 0; z-index: 2; min-width: 170px; max-width: 210px; background: var(--paper); }
 .schedule-grid-table thead th:first-child { z-index: 3; }
@@ -384,6 +389,7 @@ tbody tr:hover { background: #f8fafc; }
   .yearly-summary-table th:nth-child(n + 3),
   .yearly-summary-table td:nth-child(n + 3) { display: none; }
   #debtsView .table-wrap { overscroll-behavior-inline: contain; }
+  .schedule-scrollbar { display: none; }
   .schedule-grid-table { min-width: max-content; }
   .schedule-grid-table th:first-child { min-width: 135px; }
   .schedule-grid-table .amount-col { min-width: 84px; }

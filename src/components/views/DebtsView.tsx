@@ -1,4 +1,5 @@
 import { EmptyState } from "../EmptyState";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   groupDebtSchedulesByPerson,
   scheduledDebtPayment,
@@ -58,22 +59,8 @@ export function DebtsView({
                     Seçili aydan itibaren 12 aylık plan
                   </p>
                 </div>
-                <div className="schedule-scroll-actions" aria-label="Tabloyu kaydır">
-                  {([-1, 1] as const).map((direction) => (
-                    <button
-                      key={direction}
-                      className="row-action"
-                      type="button"
-                      aria-label={`Tabloyu ${direction === -1 ? "sola" : "sağa"} kaydır`}
-                      onClick={(event) => event.currentTarget.closest(".installment-schedule-panel")
-                        ?.querySelector(".table-wrap")?.scrollBy({ left: direction * 400, behavior: "smooth" })}
-                    >
-                      {direction === -1 ? "←" : "→"}
-                    </button>
-                  ))}
-                </div>
               </div>
-              <div className="table-wrap" role="region" aria-label={`${schedule.person} taksit tablosu`} tabIndex={0}>
+              <ScheduleScrollArea person={schedule.person}>
                 <table
                   className="schedule-grid-table"
                   aria-label={`${schedule.person} için seçili aydan itibaren 12 aylık taksit planı`}
@@ -143,7 +130,7 @@ export function DebtsView({
                     </tr>
                   </tfoot>
                 </table>
-              </div>
+              </ScheduleScrollArea>
             </section>
           ))
         ) : (
@@ -153,5 +140,46 @@ export function DebtsView({
         )}
       </div>
     </section>
+  );
+}
+
+function ScheduleScrollArea({ person, children }: { person: string; children: ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState(0);
+  const [maxScroll, setMaxScroll] = useState(0);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const update = () => {
+      setMaxScroll(Math.max(0, element.scrollWidth - element.clientWidth));
+      setPosition(element.scrollLeft);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    update();
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <>
+      <div className="table-wrap" ref={scrollRef} role="region" aria-label={`${person} taksit tablosu`} tabIndex={0} onScroll={(event) => setPosition(event.currentTarget.scrollLeft)}>
+        {children}
+      </div>
+      {maxScroll > 0 ? (
+        <input
+          className="schedule-scrollbar"
+          type="range"
+          min={0}
+          max={maxScroll}
+          value={Math.min(position, maxScroll)}
+          aria-label={`${person} taksit tablosunu yatay kaydır`}
+          onChange={(event) => {
+            if (scrollRef.current) scrollRef.current.scrollLeft = Number(event.currentTarget.value);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
