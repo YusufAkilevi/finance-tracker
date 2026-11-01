@@ -193,6 +193,10 @@ tbody tr:hover { background: #f8fafc; }
 .schedule-grid-table th:first-child { position: sticky; left: 0; z-index: 2; min-width: 170px; max-width: 210px; background: var(--paper); }
 .schedule-grid-table thead th:first-child { z-index: 3; }
 .schedule-grid-table tbody th:first-child { color: var(--ink); font-size: .8rem; text-transform: none; }
+.debt-name-cell { display: flex; align-items: center; gap: 8px; }
+.debt-reorder-buttons { flex: 0 0 auto; }
+.schedule-grid-table tbody tr.is-dragging { opacity: .45; }
+.schedule-grid-table tbody tr.debt-drop-target { outline: 3px solid var(--blue); outline-offset: -3px; }
 .schedule-grid-table .amount-col { min-width: 100px; }
 .installment-payment { display: inline-grid; justify-items: end; gap: 2px; line-height: 1.1; }
 .installment-payment small { color: var(--ink-soft); font-family: var(--font-ui); font-size: .68rem; font-weight: 650; letter-spacing: .01em; line-height: 1.2; }

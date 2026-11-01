@@ -15,6 +15,7 @@ type DebtsViewProps = {
   onAddDebt: () => void;
   onDeleteDebt: (debtId: string) => void;
   onEditDebt: (debtId: string) => void;
+  onReorderDebt: (draggedId: string, targetId: string) => void;
 };
 
 export function DebtsView({
@@ -24,7 +25,37 @@ export function DebtsView({
   onAddDebt,
   onDeleteDebt,
   onEditDebt,
+  onReorderDebt,
 }: DebtsViewProps) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const reorderRef = useRef(onReorderDebt);
+  reorderRef.current = onReorderDebt;
+  useEffect(() => {
+    if (!draggedId) return;
+    const findTarget = (event: globalThis.PointerEvent) => {
+      const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-debt-row]");
+      const source = [...document.querySelectorAll<HTMLElement>("[data-debt-row]")].find((item) => item.dataset.debtRow === draggedId);
+      return row && source && row.closest(".installment-schedule-panel") === source.closest(".installment-schedule-panel")
+        ? row.dataset.debtRow || null : null;
+    };
+    const move = (event: globalThis.PointerEvent) => setTargetId(findTarget(event));
+    const finish = (event: globalThis.PointerEvent) => {
+      const target = findTarget(event);
+      if (target) reorderRef.current(draggedId, target);
+      setDraggedId(null);
+      setTargetId(null);
+    };
+    const cancel = () => { setDraggedId(null); setTargetId(null); };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", finish);
+    document.addEventListener("pointercancel", cancel);
+    return () => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", finish);
+      document.removeEventListener("pointercancel", cancel);
+    };
+  }, [draggedId]);
   const personSchedules = groupDebtSchedulesByPerson(
     activeDebts,
     scheduleMonths,
@@ -77,9 +108,16 @@ export function DebtsView({
                     </tr>
                   </thead>
                   <tbody>
-                    {schedule.debts.map((debt) => (
-                      <tr key={debt.id}>
-                        <th>{debt.name}</th>
+                    {schedule.debts.map((debt, index) => (
+                      <tr key={debt.id} data-debt-row={debt.id} className={`${draggedId === debt.id ? "is-dragging" : ""} ${targetId === debt.id && targetId !== draggedId ? "debt-drop-target" : ""}`}>
+                        <th><span className="debt-name-cell">
+                          <span className="drag-handle" aria-hidden="true" title="Sırayı değiştirmek için sürükle" onPointerDown={(event) => { if (event.button !== 0) return; event.preventDefault(); setDraggedId(debt.id); }} />
+                          <span>{debt.name}</span>
+                          <span className="budget-reorder-buttons debt-reorder-buttons">
+                            <button type="button" aria-label={`${debt.name} yukarı taşı`} disabled={index === 0} onClick={() => onReorderDebt(debt.id, schedule.debts[index - 1].id)}>↑</button>
+                            <button type="button" aria-label={`${debt.name} aşağı taşı`} disabled={index === schedule.debts.length - 1} onClick={() => onReorderDebt(debt.id, schedule.debts[index + 1].id)}>↓</button>
+                          </span>
+                        </span></th>
                         {scheduleMonths.map((month) => {
                           const payment = scheduledDebtPayment(debt, month);
                           return (

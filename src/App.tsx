@@ -46,6 +46,7 @@ import {
   deleteDebtState,
   deleteExpenseState,
   reorderBudgetPaymentState,
+  reorderDebtState,
   rolloverBudgetPaymentsState,
   saveDebtState,
   saveExpenseState,
@@ -684,6 +685,7 @@ function App() {
             onAddDebt={openDebtModal}
             onDeleteDebt={deleteDebt}
             onEditDebt={openDebtEditModal}
+            onReorderDebt={(draggedId, targetId) => updateState((current) => reorderDebtState(current, draggedId, targetId))}
           />
 
           <BudgetsView

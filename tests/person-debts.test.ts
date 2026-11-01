@@ -8,7 +8,7 @@ import {
   monthlyExpenses,
   nextCreditCardBudgetTotals,
 } from "../src/lib/finance";
-import { saveDebtState } from "../src/lib/mutations";
+import { reorderDebtState, saveDebtState } from "../src/lib/mutations";
 import { normalizeState } from "../src/lib/state";
 import type { Debt } from "../src/types";
 
@@ -104,6 +104,20 @@ describe("person-based installment data", () => {
     expect(groupDebtSchedulesByPerson([base], ["2026-10"])).toEqual([]);
   });
 
+  it("persists reordered debts within one person without moving another person's debts", () => {
+    const debt: Debt = {
+      id: "a", name: "A", person: "Ben", monthlyAmount: 100, total: 200,
+      totalInstallments: 2, paidInstallments: 0, startMonth: "2026-08",
+      dueDay: 1, creditCard: "", recurring: false,
+    };
+    const state = { ...normalizeState({}), debts: [debt, { ...debt, id: "other", person: "Anne" }, { ...debt, id: "b" }, { ...debt, id: "c" }] };
+    const reordered = reorderDebtState(state, "c", "a");
+    expect(reordered.debts.map((item) => item.id)).toEqual(["c", "other", "a", "b"]);
+    expect(groupDebtSchedulesByPerson(reordered.debts, ["2026-08"])[0].debts.map((item) => item.id)).toEqual(["c", "a", "b"]);
+    expect(reorderDebtState(state, "a", "other")).toBe(state);
+    expect(reorderDebtState(state, "missing", "a")).toBe(state);
+  });
+
   it("stores the selected person when creating an installment", () => {
     const state = normalizeState({
       selectedMonth: "2026-08",
@@ -189,6 +203,7 @@ describe("person-based installment data", () => {
         onAddDebt: () => undefined,
         onDeleteDebt: () => undefined,
         onEditDebt: () => undefined,
+        onReorderDebt: () => undefined,
       }),
     );
 
@@ -220,6 +235,7 @@ describe("person-based installment data", () => {
         onAddDebt: () => undefined,
         onDeleteDebt: () => undefined,
         onEditDebt: () => undefined,
+        onReorderDebt: () => undefined,
       }),
     );
 

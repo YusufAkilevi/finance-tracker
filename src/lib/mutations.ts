@@ -15,6 +15,7 @@ import {
   createPayment,
   fixedBudgetPayments,
   isFixedBudgetPayment,
+  normalizeDebtPerson,
 } from "./finance";
 
 export type ExpenseValues = {
@@ -130,6 +131,20 @@ export function deleteDebtState(current: FinanceState, debtId: string) {
     ...current,
     debts: current.debts.filter((debt) => debt.id !== debtId),
   };
+}
+
+export function reorderDebtState(current: FinanceState, draggedId: string, targetId: string): FinanceState {
+  if (draggedId === targetId) return current;
+  const dragged = current.debts.find((debt) => debt.id === draggedId);
+  const target = current.debts.find((debt) => debt.id === targetId);
+  if (!dragged || !target || normalizeDebtPerson(dragged.person) !== normalizeDebtPerson(target.person)) return current;
+  const person = normalizeDebtPerson(dragged.person);
+  const personDebts = current.debts.filter((debt) => normalizeDebtPerson(debt.person) === person);
+  const from = personDebts.findIndex((debt) => debt.id === draggedId);
+  const to = personDebts.findIndex((debt) => debt.id === targetId);
+  personDebts.splice(to, 0, personDebts.splice(from, 1)[0]);
+  let index = 0;
+  return { ...current, debts: current.debts.map((debt) => normalizeDebtPerson(debt.person) === person ? personDebts[index++] : debt) };
 }
 
 export function addBudgetState(
