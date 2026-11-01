@@ -181,8 +181,10 @@ tbody tr:hover { background: #f8fafc; }
 .generated-expense-label { display: inline-flex; padding: 5px 8px; border-radius: 99px; background: var(--blue-soft); color: var(--blue-dark); font-size: .68rem; font-weight: 800; }
 
 .installment-schedule-panel { min-width: 0; }
+.debt-content-grid { grid-template-columns: minmax(0, 1fr); }
+.schedule-scroll-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+.schedule-scroll-actions .row-action { min-width: 40px; font-size: 1rem; }
 .schedule-grid-table { min-width: 1100px; }
-.mobile-scroll-hint { display: none; }
 .schedule-grid-table th:first-child { position: sticky; left: 0; z-index: 2; min-width: 170px; max-width: 210px; background: var(--paper); }
 .schedule-grid-table thead th:first-child { z-index: 3; }
 .schedule-grid-table tbody th:first-child { color: var(--ink); font-size: .8rem; text-transform: none; }
@@ -383,7 +385,6 @@ tbody tr:hover { background: #f8fafc; }
   .yearly-summary-table td:nth-child(n + 3) { display: none; }
   #debtsView .table-wrap { overscroll-behavior-inline: contain; }
   .schedule-grid-table { min-width: max-content; }
-  .mobile-scroll-hint { display: block; margin-top: 4px; color: var(--blue-dark); font-weight: 750; }
   .schedule-grid-table th:first-child { min-width: 135px; }
   .schedule-grid-table .amount-col { min-width: 84px; }
   #budgetsView .installment-schedule-panel { padding: 0; overflow: hidden; }

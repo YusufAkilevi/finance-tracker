@@ -56,13 +56,24 @@ export function DebtsView({
                   <h3>{schedule.person} Taksit Tablosu</h3>
                   <p className="panel-note">
                     Seçili aydan itibaren 12 aylık plan
-                    <span className="mobile-scroll-hint">
-                      Tüm aylar için yatay kaydırın
-                    </span>
                   </p>
                 </div>
+                <div className="schedule-scroll-actions" aria-label="Tabloyu kaydır">
+                  {([-1, 1] as const).map((direction) => (
+                    <button
+                      key={direction}
+                      className="row-action"
+                      type="button"
+                      aria-label={`Tabloyu ${direction === -1 ? "sola" : "sağa"} kaydır`}
+                      onClick={(event) => event.currentTarget.closest(".installment-schedule-panel")
+                        ?.querySelector(".table-wrap")?.scrollBy({ left: direction * 400, behavior: "smooth" })}
+                    >
+                      {direction === -1 ? "←" : "→"}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="table-wrap">
+              <div className="table-wrap" role="region" aria-label={`${schedule.person} taksit tablosu`} tabIndex={0}>
                 <table
                   className="schedule-grid-table"
                   aria-label={`${schedule.person} için seçili aydan itibaren 12 aylık taksit planı`}
