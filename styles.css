@@ -99,7 +99,14 @@ input:focus-visible, select:focus-visible { border-color: var(--blue); outline-o
 .metric small { color: var(--ink-soft); font-size: .72rem; }
 
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr); gap: 18px; }
-.expenses-summary-grid { grid-template-columns: minmax(0, 1fr); max-width: 680px; margin-bottom: 18px; }
+.expenses-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; margin-bottom: 18px; }
+.expense-average-total { display: grid; gap: 5px; padding: 14px; border-radius: 10px; background: var(--paper-soft); }
+.expense-average-total span, .expense-average-total small { color: var(--ink-soft); font-size: .78rem; }
+.expense-average-total strong { font-family: var(--font-data); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.expense-average-heading, .expense-average-row { display: flex; justify-content: space-between; gap: 12px; }
+.expense-average-heading { margin-top: 18px; color: var(--ink-soft); font-size: .7rem; font-weight: 800; text-transform: uppercase; }
+.expense-average-row { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .85rem; }
+.expense-average-row strong { font-family: var(--font-data); font-size: .8rem; font-variant-numeric: tabular-nums; text-align: right; }
 .content-grid { display: grid; gap: 18px; align-items: start; }
 .panel { padding: 22px; border-radius: var(--radius); }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
@@ -354,7 +361,8 @@ tbody tr:hover { background: #f8fafc; }
   .metric strong { font-size: 1rem; }
   .metric small { font-size: .64rem; }
   .panel { padding: 17px; }
-  .expenses-summary-grid { display: none; }
+  .expenses-summary-grid { grid-template-columns: 1fr; }
+  .expense-category-summary { display: none; }
   #expensesView .split-heading { align-items: stretch; flex-direction: column; }
   #expensesView .expense-filter-controls { grid-template-columns: 1fr; width: 100%; }
   #expensesView .expense-filter-total { justify-content: space-between; gap: 12px; margin-top: 12px; border-radius: 10px; }

@@ -26,6 +26,7 @@ import {
   expenseCategories,
   filterExpenses,
   fixedBudgetPayments,
+  historicalExpenseAverage,
   isFixedHousingOrInstallmentExpense,
   isRecurringDebt,
   monthlyDebtDue,
@@ -668,6 +669,7 @@ function App() {
             activeView={view}
             categories={categories}
             expenses={expenses}
+            average={historicalExpenseAverage(state)}
             filteredExpenses={filteredExpenses}
             selectedCreditCardFilter={expenseCardFilter}
             selectedExpenseFilters={selectedExpenseFilters}

@@ -3,12 +3,14 @@ import { BarList } from "../BarList";
 import { EmptyState } from "../EmptyState";
 import { expenseNote, sortedTotals, sum } from "../../lib/finance";
 import { formatDate, money } from "../../lib/format";
+import { longMonth } from "../../lib/date";
 import type { Expense, ExpenseCardFilter, View } from "../../types";
 
 type ExpensesViewProps = {
   activeView: View;
   categories: string[];
   expenses: Expense[];
+  average?: { months: string[]; total: number; categories: [string, number][] };
   filteredExpenses: Expense[];
   selectedCreditCardFilter: ExpenseCardFilter;
   selectedExpenseFilters: string[];
@@ -105,6 +107,7 @@ export function ExpensesView({
   activeView,
   categories,
   expenses,
+  average = { months: [], total: 0, categories: [] },
   filteredExpenses,
   selectedCreditCardFilter,
   selectedExpenseFilters,
@@ -130,7 +133,7 @@ export function ExpensesView({
         </button>
       </div>
       <div className="dashboard-grid expenses-summary-grid">
-        <section className="panel">
+        <section className="panel expense-category-summary">
           <div className="panel-heading">
             <h3>Kategori Özeti</h3>
           </div>
@@ -138,6 +141,20 @@ export function ExpensesView({
             entries={sortedTotals(expenses, "category")}
             emptyText="Bu ay henüz harcama yok."
           />
+        </section>
+        <section className="panel expense-average" aria-labelledby="expense-average-title">
+          <div className="panel-heading">
+            <div>
+              <h3 id="expense-average-title">Aylık Ortalama</h3>
+              <p className="panel-note">{average.months.length ? `${longMonth(average.months[0])} – ${longMonth(average.months[average.months.length - 1])} · ${average.months.length} veri olan ay` : "Henüz tamamlanmış ay verisi yok."}</p>
+            </div>
+          </div>
+          {average.months.length > 0 && <>
+            <div className="expense-average-total"><span>Toplam aylık harcama</span><strong>{money(average.total)}</strong><small>aylık ortalama</small></div>
+            <div className="expense-average-heading"><span>Kategorilere göre</span><span>Aylık ort.</span></div>
+            {average.categories.map(([category, amount]) => <div className="expense-average-row" key={category}><span>{category}</span><strong>{money(amount)}</strong></div>)}
+            <p className="panel-note">Yalnızca harcama kaydı olan tamamlanmış aylar dahildir.</p>
+          </>}
         </section>
       </div>
       <div className="content-grid">

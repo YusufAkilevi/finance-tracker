@@ -14,7 +14,7 @@ import type {
   FinanceState,
   PersonDebtSchedule,
 } from "../types";
-import { monthDiff } from "./date";
+import { addMonths, currentMonth, monthDiff } from "./date";
 
 export function createExpense(
   date: string,
@@ -288,6 +288,33 @@ export function monthlyExpenses(state: FinanceState, month: string) {
     }));
 
   return [...savedExpenses, ...generatedInstallments];
+}
+
+// Only months with recorded expenses contribute to the denominator. The
+// current calendar month is incomplete and is excluded.
+export function historicalExpenseAverage(state: FinanceState, beforeMonth = currentMonth()) {
+  const starts = [
+    ...state.expenses.map((expense) => expense.date.slice(0, 7)),
+    ...state.debts.filter((debt) => isOwnDebt(debt) && debt.creditCard).map((debt) => debt.startMonth),
+  ].filter((month) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month) && month < beforeMonth).sort();
+  if (!starts.length) return { months: [] as string[], total: 0, categories: [] as [string, number][] };
+
+  const months: string[] = [];
+  const expenses: Expense[] = [];
+  for (let month = starts[0]; month < beforeMonth; month = addMonths(month, 1)) {
+    const entries = monthlyExpenses(state, month);
+    if (entries.length) {
+      months.push(month);
+      expenses.push(...entries);
+    }
+  }
+  return {
+    months,
+    total: months.length ? sum(expenses, "amount") / months.length : 0,
+    categories: months.length
+      ? sortedTotals(expenses, "category").map(([category, total]): [string, number] => [category, total / months.length])
+      : [],
+  };
 }
 
 export function yearlyExpenses(state: FinanceState) {
