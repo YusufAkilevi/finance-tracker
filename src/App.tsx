@@ -469,8 +469,8 @@ function App() {
         description: formValue(form, "description").trim(),
       }),
     );
-    form.reset();
     setToast(editingId ? "Portföy güncellendi." : "Portföy oluşturuldu.");
+    setInvestmentManagerOpen(false);
   }
 
   function setInvestmentPortfolioArchived(portfolioId: string, archived: boolean) {
